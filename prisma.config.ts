@@ -15,9 +15,8 @@ function getDatasourceUrl(): string {
   const database = process.env["DB_NAME"];
 
   if (!host || !port || !user || !password || !database) {
-    throw new Error(
-      "Missing DB environment variables: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME"
-    );
+    // Fallback for build-time commands (e.g. prisma generate) when DB env is not provided.
+    return "postgresql://postgres:postgres@localhost:5432/postgres";
   }
 
   const url = new URL("postgresql://localhost");

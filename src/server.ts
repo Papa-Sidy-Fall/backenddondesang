@@ -6,25 +6,33 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "./generated/prisma/client.js";
 
 const app = express();
-const dbHost = process.env.DB_HOST;
-const dbPort = process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined;
-const dbUser = process.env.DB_USER;
-const dbPassword = process.env.DB_PASSWORD;
-const dbName = process.env.DB_NAME;
+const databaseUrl = process.env.DATABASE_URL;
 
-if (!dbHost || !dbPort || !dbUser || !dbPassword || !dbName) {
-  throw new Error(
-    "Missing DB environment variables: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME"
-  );
+if (!databaseUrl) {
+  const hasDbParts =
+    process.env.DB_HOST &&
+    process.env.DB_PORT &&
+    process.env.DB_USER &&
+    process.env.DB_PASSWORD &&
+    process.env.DB_NAME;
+
+  if (!hasDbParts) {
+    throw new Error(
+      "Set DATABASE_URL or DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME"
+    );
+  }
 }
 
-const pool = new Pool({
-  host: dbHost,
-  port: dbPort,
-  user: dbUser,
-  password: dbPassword,
-  database: dbName,
-});
+const pool =
+  databaseUrl && databaseUrl.trim() !== ""
+    ? new Pool({ connectionString: databaseUrl })
+    : new Pool({
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      });
 
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
@@ -46,7 +54,7 @@ app.get("/test-db", async (req, res) => {
   }
 });
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.listen(PORT, () => {
   console.log(`🔥 Server running on http://localhost:${PORT}`);

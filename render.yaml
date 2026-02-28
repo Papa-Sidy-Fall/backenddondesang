@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: dondesang-backend
+    runtime: docker
+    rootDir: .
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: oregon
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dondesang-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+
+databases:
+  - name: dondesang-db
+    region: oregon
+    databaseName: dondesang
+    user: dondesang_user
