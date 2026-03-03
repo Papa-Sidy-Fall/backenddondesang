@@ -67,7 +67,9 @@ export async function createApplication(): Promise<AppDependencies> {
   const googleOAuthService = new GoogleOAuthService(authService, logger);
   const dbBootstrapService = new DatabaseBootstrapService(dbPool);
 
+  logger.info("Initializing database schema");
   await dbBootstrapService.initialize();
+  logger.info("Database schema initialized");
 
   const healthController = new HealthController(dbPool);
   const authController = new AuthController(authService, googleOAuthService);
