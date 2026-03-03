@@ -4,7 +4,11 @@ import { env } from "./environment.js";
 
 function createConnectionConfig() {
   if (env.databaseUrl && env.databaseUrl.trim() !== "") {
-    return { connectionString: env.databaseUrl };
+    return {
+      connectionString: env.databaseUrl,
+      connectionTimeoutMillis: 10_000,
+      idleTimeoutMillis: 30_000,
+    };
   }
 
   if (!env.dbHost || !env.dbPort || !env.dbUser || !env.dbPassword || !env.dbName) {
@@ -21,6 +25,8 @@ function createConnectionConfig() {
     user: env.dbUser,
     password: env.dbPassword,
     database: env.dbName,
+    connectionTimeoutMillis: 10_000,
+    idleTimeoutMillis: 30_000,
   };
 }
 
