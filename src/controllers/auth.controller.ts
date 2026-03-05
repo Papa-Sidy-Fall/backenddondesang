@@ -1,4 +1,6 @@
 import type { Request, Response } from "express";
+import { AppError } from "../shared/errors/app-error.js";
+import { changePasswordSchema } from "../dtos/auth/change-password.dto.js";
 import {
   googleAuthUrlQuerySchema,
   googleCallbackQuerySchema,
@@ -24,6 +26,16 @@ export class AuthController {
     const dto = loginDonorSchema.parse(req.body);
     const authResponse = await this.authService.loginDonor(dto);
     res.json(authResponse);
+  };
+
+  changePassword = async (req: Request, res: Response): Promise<void> => {
+    if (!req.authUser) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const dto = changePasswordSchema.parse(req.body);
+    await this.authService.changePassword(req.authUser.userId, dto);
+    res.status(204).send();
   };
 
   getGoogleAuthorizationUrl = (req: Request, res: Response): void => {

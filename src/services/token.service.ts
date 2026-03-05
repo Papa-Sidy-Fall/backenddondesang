@@ -5,6 +5,7 @@ import { AppError } from "../shared/errors/app-error.js";
 export interface AuthTokenPayload {
   sub: string;
   email: string;
+  role?: string;
 }
 
 export class TokenService {
@@ -25,6 +26,7 @@ export class TokenService {
       return {
         sub: decoded.sub,
         email: decoded.email,
+        role: typeof decoded.role === "string" ? decoded.role : undefined,
       };
     } catch {
       throw new AppError("Invalid or expired token", 401, "INVALID_TOKEN");

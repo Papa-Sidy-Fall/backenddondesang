@@ -21,6 +21,7 @@ export function authMiddleware(tokenService: TokenService) {
     req.authUser = {
       userId: payload.sub,
       email: payload.email,
+      role: payload.role,
     };
 
     next();

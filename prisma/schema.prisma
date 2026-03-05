@@ -12,3 +12,128 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+model User {
+  id                 String           @id @db.Uuid
+  email              String           @unique @db.VarChar(255)
+  firstName          String           @map("first_name") @db.VarChar(100)
+  lastName           String           @map("last_name") @db.VarChar(100)
+  role               String           @default("DONOR") @db.VarChar(20)
+  hospitalName       String?          @map("hospital_name") @db.VarChar(150)
+  phone              String?          @db.VarChar(30)
+  birthDate          DateTime?        @map("birth_date") @db.Date
+  bloodType          String?          @map("blood_type") @db.VarChar(5)
+  city               String?          @db.VarChar(100)
+  district           String?          @db.VarChar(100)
+  passwordHash       String?          @map("password_hash") @db.VarChar(255)
+  authProvider       AuthProvider     @default(LOCAL) @map("auth_provider")
+  googleId           String?          @map("google_id") @db.VarChar(255)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  campaignsCreated   Campaign[]
+  donationsAsDonor   Donation[]       @relation("DonationDonor")
+  donationsAsHospital Donation[]      @relation("DonationHospital")
+  appointmentsAsDonor Appointment[]   @relation("AppointmentDonor")
+  appointmentsAsHospital Appointment[] @relation("AppointmentHospital")
+  stockItems         HospitalStock[]
+  emergencyAlerts    EmergencyAlert[]
+
+  @@index([email], map: "idx_users_email")
+  @@index([googleId], map: "idx_users_google_id")
+  @@map("users")
+}
+
+model Campaign {
+  id                String   @id @db.Uuid
+  title             String   @db.VarChar(200)
+  description       String
+  startDate         DateTime @map("start_date") @db.Date
+  endDate           DateTime @map("end_date") @db.Date
+  targetDonations   Int      @map("target_donations")
+  collectedDonations Int     @default(0) @map("collected_donations")
+  status            String   @default("ACTIVE") @db.VarChar(20)
+  location          String   @db.VarChar(255)
+  createdByUserId   String?  @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy         User?    @relation(fields: [createdByUserId], references: [id])
+
+  @@index([status], map: "idx_campaigns_status")
+  @@map("campaigns")
+}
+
+model Donation {
+  id             String   @id @db.Uuid
+  donorUserId    String   @map("donor_user_id") @db.Uuid
+  hospitalUserId String?  @map("hospital_user_id") @db.Uuid
+  centerName     String   @map("center_name") @db.VarChar(150)
+  donationType   String   @map("donation_type") @db.VarChar(80)
+  status         String   @default("COMPLETED") @db.VarChar(30)
+  donationDate   DateTime @map("donation_date") @db.Date
+  units          Int      @default(1)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  donor          User     @relation("DonationDonor", fields: [donorUserId], references: [id])
+  hospital       User?    @relation("DonationHospital", fields: [hospitalUserId], references: [id])
+
+  @@index([donorUserId], map: "idx_donations_donor")
+  @@index([donationDate], map: "idx_donations_date")
+  @@map("donations")
+}
+
+model Appointment {
+  id              String   @id @db.Uuid
+  donorUserId     String   @map("donor_user_id") @db.Uuid
+  hospitalUserId  String   @map("hospital_user_id") @db.Uuid
+  centerName      String   @map("center_name") @db.VarChar(150)
+  appointmentDate DateTime @map("appointment_date") @db.Date
+  appointmentTime String   @map("appointment_time") @db.VarChar(5)
+  donationType    String   @map("donation_type") @db.VarChar(80)
+  status          String   @default("PENDING") @db.VarChar(30)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  donor           User     @relation("AppointmentDonor", fields: [donorUserId], references: [id])
+  hospital        User     @relation("AppointmentHospital", fields: [hospitalUserId], references: [id])
+
+  @@index([hospitalUserId], map: "idx_appointments_hospital")
+  @@index([donorUserId], map: "idx_appointments_donor")
+  @@index([appointmentDate], map: "idx_appointments_date")
+  @@map("appointments")
+}
+
+model HospitalStock {
+  id             String   @id @db.Uuid
+  hospitalUserId String   @map("hospital_user_id") @db.Uuid
+  bloodType      String   @map("blood_type") @db.VarChar(5)
+  quantity       Int      @default(0)
+  threshold      Int      @default(0)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  hospital       User     @relation(fields: [hospitalUserId], references: [id])
+
+  @@unique([hospitalUserId, bloodType], map: "hospital_stocks_unique")
+  @@map("hospital_stocks")
+}
+
+model EmergencyAlert {
+  id                String   @id @db.Uuid
+  hospitalUserId    String   @map("hospital_user_id") @db.Uuid
+  bloodType         String   @map("blood_type") @db.VarChar(5)
+  quantityNeeded    Int      @map("quantity_needed")
+  message           String
+  priority          String   @default("HIGH") @db.VarChar(20)
+  status            String   @default("ACTIVE") @db.VarChar(20)
+  notifiedDonors    Int      @default(0) @map("notified_donors")
+  positiveResponses Int      @default(0) @map("positive_responses")
+  donationsCompleted Int     @default(0) @map("donations_completed")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  hospital          User     @relation(fields: [hospitalUserId], references: [id])
+
+  @@index([hospitalUserId], map: "idx_emergency_alerts_hospital")
+  @@index([status], map: "idx_emergency_alerts_status")
+  @@map("emergency_alerts")
+}

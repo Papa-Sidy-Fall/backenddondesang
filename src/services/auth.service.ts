@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { AuthProvider } from "../domain/enums/auth-provider.enum.js";
 import type { User } from "../domain/entities/user.entity.js";
+import { UserRole } from "../domain/enums/user-role.enum.js";
 import type { AuthResponseDto } from "../dtos/auth/auth-response.dto.js";
+import type { ChangePasswordDto } from "../dtos/auth/change-password.dto.js";
 import type { GoogleIdentityPayload } from "../dtos/auth/google-oauth.dto.js";
 import type { LoginDonorDto } from "../dtos/auth/login-donor.dto.js";
 import type { RegisterDonorDto } from "../dtos/auth/register-donor.dto.js";
@@ -40,6 +42,7 @@ export class AuthService {
       city: dto.city,
       district: dto.district,
       passwordHash,
+      role: UserRole.DONOR,
       authProvider: AuthProvider.LOCAL,
     });
 
@@ -69,7 +72,7 @@ export class AuthService {
       throw new AppError("Invalid credentials", 401, "INVALID_CREDENTIALS");
     }
 
-    this.logger.info("Donor logged in", { userId: user.id, email: user.email });
+    this.logger.info("User logged in", { userId: user.id, email: user.email, role: user.role });
 
     return this.buildAuthResponse(user.id, user.email, user);
   }
@@ -112,6 +115,7 @@ export class AuthService {
       email: identity.email,
       firstName: identity.firstName || "Google",
       lastName: identity.lastName || "User",
+      role: UserRole.DONOR,
       authProvider: AuthProvider.GOOGLE,
       googleId: identity.googleId,
     });
@@ -124,12 +128,49 @@ export class AuthService {
     return this.buildAuthResponse(created.id, created.email, created);
   }
 
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+
+    if (!user) {
+      throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    }
+
+    if (!user.passwordHash) {
+      throw new AppError(
+        "Password change is not available for OAuth-only account",
+        400,
+        "PASSWORD_CHANGE_NOT_AVAILABLE"
+      );
+    }
+
+    const isCurrentPasswordValid = await this.passwordHashService.compare(
+      dto.currentPassword,
+      user.passwordHash
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new AppError("Current password is incorrect", 400, "INVALID_CURRENT_PASSWORD");
+    }
+
+    const newPasswordHash = await this.passwordHashService.hash(dto.newPassword);
+    await this.userRepository.updatePassword(user.id, newPasswordHash);
+
+    this.logger.info("Password updated", {
+      userId: user.id,
+      role: user.role,
+    });
+  }
+
   private buildAuthResponse(
     userId: string,
     email: string,
     user: User
   ): AuthResponseDto {
-    const accessToken = this.tokenService.signAccessToken({ sub: userId, email });
+    const accessToken = this.tokenService.signAccessToken({
+      sub: userId,
+      email,
+      role: user.role,
+    });
 
     return {
       accessToken,

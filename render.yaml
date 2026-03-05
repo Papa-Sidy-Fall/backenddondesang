@@ -18,6 +18,22 @@ services:
         sync: false
       - key: DEV_LOG_TOKEN
         sync: false
+      - key: DEV_LOG_EMAIL
+        sync: false
+      - key: DEV_LOG_PASSWORD
+        sync: false
+      - key: DEFAULT_ADMIN_EMAIL
+        sync: false
+      - key: DEFAULT_ADMIN_PASSWORD
+        sync: false
+      - key: DEFAULT_DANTEC_EMAIL
+        sync: false
+      - key: DEFAULT_DANTEC_PASSWORD
+        sync: false
+      - key: DEFAULT_FANN_EMAIL
+        sync: false
+      - key: DEFAULT_FANN_PASSWORD
+        sync: false
 
 databases:
   - name: dondesang-db

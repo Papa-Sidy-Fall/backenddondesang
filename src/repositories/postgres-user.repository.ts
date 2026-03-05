@@ -7,6 +7,8 @@ interface UserRow {
   email: string;
   first_name: string;
   last_name: string;
+  role: string;
+  hospital_name: string | null;
   phone: string | null;
   birth_date: string | null;
   blood_type: string | null;
@@ -57,6 +59,8 @@ export class PostgresUserRepository implements IUserRepository {
         email,
         first_name,
         last_name,
+        role,
+        hospital_name,
         phone,
         birth_date,
         blood_type,
@@ -66,7 +70,7 @@ export class PostgresUserRepository implements IUserRepository {
         auth_provider,
         google_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10, $11, $12)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::date, $9, $10, $11, $12, $13, $14)
       RETURNING *
       `,
       [
@@ -74,6 +78,8 @@ export class PostgresUserRepository implements IUserRepository {
         input.email,
         input.firstName,
         input.lastName,
+        input.role ?? "DONOR",
+        input.hospitalName ?? null,
         input.phone ?? null,
         input.birthDate ?? null,
         input.bloodType ?? null,
@@ -86,6 +92,18 @@ export class PostgresUserRepository implements IUserRepository {
     );
 
     return this.mapRowToEntity(result.rows[0]);
+  }
+
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    await this.pool.query(
+      `
+      UPDATE users
+      SET password_hash = $1,
+          updated_at = NOW()
+      WHERE id = $2
+      `,
+      [passwordHash, userId]
+    );
   }
 
   async attachGoogleIdentity(userId: string, googleId: string): Promise<void> {
@@ -107,6 +125,8 @@ export class PostgresUserRepository implements IUserRepository {
       email: row.email,
       firstName: row.first_name,
       lastName: row.last_name,
+      role: row.role as User["role"],
+      hospitalName: row.hospital_name,
       phone: row.phone,
       birthDate: row.birth_date,
       bloodType: row.blood_type,
