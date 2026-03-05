@@ -73,7 +73,10 @@ export class DonorDashboardService {
       campagnes: campaigns.map((campaign) => ({
         id: campaign.id,
         titre: campaign.title,
+        description: campaign.description,
         date: campaign.startDate,
+        dateFin: campaign.endDate,
+        statut: campaign.status,
         lieu: campaign.location,
       })),
     };

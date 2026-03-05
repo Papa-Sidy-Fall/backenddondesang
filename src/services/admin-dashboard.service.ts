@@ -20,6 +20,17 @@ const BLOOD_COLOR_MAP: Record<string, string> = {
   "N/A": "bg-gray-500",
 };
 
+const DEFAULT_STOCK_THRESHOLDS = [
+  { bloodType: "A+", threshold: 30 },
+  { bloodType: "A-", threshold: 20 },
+  { bloodType: "B+", threshold: 30 },
+  { bloodType: "B-", threshold: 15 },
+  { bloodType: "AB+", threshold: 20 },
+  { bloodType: "AB-", threshold: 10 },
+  { bloodType: "O+", threshold: 40 },
+  { bloodType: "O-", threshold: 25 },
+] as const;
+
 export class AdminDashboardService {
   constructor(
     private readonly userRepository: IUserRepository,
@@ -27,7 +38,7 @@ export class AdminDashboardService {
   ) {}
 
   async getDashboard(userId: string): Promise<AdminDashboardDto> {
-    await this.requireAdmin(userId);
+    const admin = await this.requireAdmin(userId);
 
     const [
       roleCounts,
@@ -39,6 +50,8 @@ export class AdminDashboardService {
       regionalDonations,
       campaigns,
       latestDonors,
+      detailedDonors,
+      cntsStocksRaw,
     ] = await Promise.all([
       this.dashboardRepository.getRoleCounts(),
       this.dashboardRepository.getDonationsThisMonth(),
@@ -49,12 +62,21 @@ export class AdminDashboardService {
       this.dashboardRepository.getRegionalDonationsThisMonth(),
       this.dashboardRepository.listCampaigns(),
       this.dashboardRepository.listLatestDonors(5),
+      this.dashboardRepository.listDetailedDonors(50),
+      this.dashboardRepository.getHospitalStocks(admin.id),
     ]);
 
     const monthlySeries = this.buildMonthlySeries(monthlyDonations, 6);
     const repartition = this.buildBloodDistribution(bloodDistribution);
 
     const regionalDonationMap = new Map(regionalDonations.map((row) => [row.city, row.donations]));
+
+    const cntsStocks = this.ensureStockShape(cntsStocksRaw).map((stock) => ({
+      groupeSanguin: stock.bloodType,
+      quantite: stock.quantity,
+      seuil: stock.threshold,
+      statut: this.getStockStatus(stock.quantity, stock.threshold),
+    }));
 
     return {
       statistiques: {
@@ -90,11 +112,26 @@ export class AdminDashboardService {
           id: donor.id,
           nom: `${donor.firstName} ${donor.lastName}`.trim(),
           email: donor.email,
+          telephone: donor.phone ?? "-",
           groupe: donor.bloodType ?? "-",
           date: donor.createdAt.slice(0, 10),
           ville: donor.city ?? "-",
+          quartier: donor.district ?? "-",
+          dateNaissance: donor.birthDate ?? "-",
+        })),
+        donneursDetails: detailedDonors.map((donor) => ({
+          id: donor.id,
+          nom: `${donor.firstName} ${donor.lastName}`.trim(),
+          email: donor.email,
+          telephone: donor.phone ?? "-",
+          groupe: donor.bloodType ?? "-",
+          date: donor.createdAt.slice(0, 10),
+          ville: donor.city ?? "-",
+          quartier: donor.district ?? "-",
+          dateNaissance: donor.birthDate ?? "-",
         })),
       },
+      cntsStocks,
     };
   }
 
@@ -198,5 +235,32 @@ export class AdminDashboardService {
       pourcentage: total > 0 ? Math.round((row.total / total) * 100) : 0,
       couleur: BLOOD_COLOR_MAP[row.bloodType] ?? "bg-gray-500",
     }));
+  }
+
+  private ensureStockShape(
+    stocks: Array<{ bloodType: string; quantity: number; threshold: number }>
+  ): Array<{ bloodType: string; quantity: number; threshold: number }> {
+    const byBloodType = new Map(stocks.map((item) => [item.bloodType, item]));
+
+    return DEFAULT_STOCK_THRESHOLDS.map((item) => {
+      const existing = byBloodType.get(item.bloodType);
+      return {
+        bloodType: item.bloodType,
+        quantity: existing?.quantity ?? 0,
+        threshold: existing?.threshold ?? item.threshold,
+      };
+    });
+  }
+
+  private getStockStatus(quantity: number, threshold: number): "critique" | "faible" | "normal" {
+    if (quantity <= Math.max(1, Math.floor(threshold * 0.5))) {
+      return "critique";
+    }
+
+    if (quantity < threshold) {
+      return "faible";
+    }
+
+    return "normal";
   }
 }

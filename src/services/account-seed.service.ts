@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { CENTER_DIRECTORY } from "../config/center-directory.js";
 import { env } from "../config/environment.js";
 import { AuthProvider } from "../domain/enums/auth-provider.enum.js";
 import { UserRole } from "../domain/enums/user-role.enum.js";
@@ -24,6 +25,7 @@ export class AccountSeedService {
       city: "Dakar",
     });
 
+    // Keep legacy defaults for backward compatibility with existing deployments.
     await this.ensureAccount({
       email: env.defaultAccounts.dantec.email,
       password: env.defaultAccounts.dantec.password,
@@ -43,6 +45,22 @@ export class AccountSeedService {
       hospitalName: "Hôpital Fann",
       city: "Dakar",
     });
+
+    for (const center of CENTER_DIRECTORY) {
+      const nameParts = center.hospitalName.replace(/^Hôpital\\s+/i, "").split(" ");
+      const firstName = nameParts[0] || "Centre";
+      const lastName = nameParts.slice(1).join(" ") || "Santé";
+
+      await this.ensureAccount({
+        email: center.email,
+        password: center.password,
+        firstName,
+        lastName,
+        role: UserRole.HOSPITAL,
+        hospitalName: center.hospitalName,
+        city: center.city,
+      });
+    }
   }
 
   private async ensureAccount(input: {

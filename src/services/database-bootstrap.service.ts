@@ -85,6 +85,7 @@ export class DatabaseBootstrapService {
         status VARCHAR(30) NOT NULL DEFAULT 'COMPLETED',
         donation_date DATE NOT NULL,
         units INTEGER NOT NULL DEFAULT 1 CHECK (units > 0),
+        appointment_id UUID UNIQUE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         CONSTRAINT donations_status_check CHECK (status IN ('PENDING', 'COMPLETED', 'CANCELLED'))
       );
@@ -100,10 +101,90 @@ export class DatabaseBootstrapService {
         appointment_time VARCHAR(5) NOT NULL,
         donation_type VARCHAR(80) NOT NULL,
         status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+        conversation_id UUID,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         CONSTRAINT appointments_status_check CHECK (status IN ('PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'))
       );
+    `);
+
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id UUID PRIMARY KEY,
+        subject VARCHAR(200) NOT NULL,
+        created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS conversation_participants (
+        conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        last_read_at TIMESTAMPTZ,
+        PRIMARY KEY (conversation_id, user_id)
+      );
+    `);
+
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS conversation_messages (
+        id UUID PRIMARY KEY,
+        conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        sender_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        body TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await this.pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS conversation_id UUID;
+    `);
+
+    await this.pool.query(`
+      ALTER TABLE donations
+      ADD COLUMN IF NOT EXISTS appointment_id UUID;
+    `);
+
+    await this.pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'appointments_conversation_fkey'
+        ) THEN
+          ALTER TABLE appointments
+          ADD CONSTRAINT appointments_conversation_fkey
+          FOREIGN KEY (conversation_id)
+          REFERENCES conversations(id)
+          ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `);
+
+    await this.pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'donations_appointment_fkey'
+        ) THEN
+          ALTER TABLE donations
+          ADD CONSTRAINT donations_appointment_fkey
+          FOREIGN KEY (appointment_id)
+          REFERENCES appointments(id)
+          ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `);
+
+    await this.pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_donations_appointment_unique
+      ON donations (appointment_id)
+      WHERE appointment_id IS NOT NULL;
     `);
 
     await this.pool.query(`
@@ -160,6 +241,12 @@ export class DatabaseBootstrapService {
     );
     await this.pool.query(
       `CREATE INDEX IF NOT EXISTS idx_emergency_alerts_status ON emergency_alerts (status);`
+    );
+    await this.pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_conversation_participants_user ON conversation_participants (user_id);`
+    );
+    await this.pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation ON conversation_messages (conversation_id, created_at DESC);`
     );
   }
 }

@@ -78,8 +78,11 @@ export interface LatestDonorRecord {
   firstName: string;
   lastName: string;
   email: string;
+  phone: string | null;
   bloodType: string | null;
   city: string | null;
+  district: string | null;
+  birthDate: string | null;
   createdAt: string;
 }
 
@@ -93,6 +96,7 @@ export interface StockRecord {
 
 export interface HospitalAppointmentRecord {
   id: string;
+  donorUserId: string;
   appointmentDate: string;
   appointmentTime: string;
   donationType: string;
@@ -102,6 +106,74 @@ export interface HospitalAppointmentRecord {
   donorLastName: string;
   donorPhone: string | null;
   donorBloodType: string | null;
+  donorEmail: string;
+  donorCity: string | null;
+  donorDistrict: string | null;
+  donorBirthDate: string | null;
+}
+
+export interface CenterRecord {
+  hospitalUserId: string;
+  email: string;
+  name: string;
+  city: string;
+  address: string;
+  phone: string;
+  openingHours: string;
+  coordinates: string;
+  defaultDistance: string;
+  supportedBloodTypes: string[];
+}
+
+export interface CreateAppointmentInput {
+  id: string;
+  donorUserId: string;
+  hospitalUserId: string;
+  centerName: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  donationType: string;
+  conversationId?: string | null;
+}
+
+export interface ConversationSummaryRecord {
+  id: string;
+  subject: string;
+  createdAt: string;
+  updatedAt: string;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+}
+
+export interface ConversationParticipantRecord {
+  conversationId: string;
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  hospitalName: string | null;
+}
+
+export interface ConversationMessageRecord {
+  id: string;
+  conversationId: string;
+  senderUserId: string;
+  senderName: string;
+  senderRole: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface ContactRecord {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  hospitalName: string | null;
+  city: string | null;
 }
 
 export interface CreateCampaignInput {
@@ -126,6 +198,28 @@ export interface CreateEmergencyInput {
   notifiedDonors: number;
 }
 
+export interface CreateConversationInput {
+  id: string;
+  subject: string;
+  createdByUserId: string;
+  participantUserIds: string[];
+}
+
+export interface CreateConversationMessageInput {
+  id: string;
+  conversationId: string;
+  senderUserId: string;
+  body: string;
+}
+
+export interface UpsertManualStockInput {
+  hospitalUserId: string;
+  bloodType: string;
+  quantity: number;
+  threshold?: number;
+  mode: "SET" | "ADD";
+}
+
 export interface IDashboardRepository {
   findDonorDonationHistory(userId: string, limit: number): Promise<DonationHistoryRecord[]>;
   findDonorUpcomingAppointments(userId: string, limit: number): Promise<UpcomingAppointmentRecord[]>;
@@ -145,6 +239,7 @@ export interface IDashboardRepository {
   createCampaign(input: CreateCampaignInput): Promise<CampaignRecord>;
   deleteCampaign(campaignId: string): Promise<boolean>;
   listLatestDonors(limit: number): Promise<LatestDonorRecord[]>;
+  listDetailedDonors(limit: number): Promise<LatestDonorRecord[]>;
 
   getHospitalStocks(hospitalUserId: string): Promise<StockRecord[]>;
   getHospitalAppointments(hospitalUserId: string, limit: number): Promise<HospitalAppointmentRecord[]>;
@@ -157,4 +252,27 @@ export interface IDashboardRepository {
   createEmergencyAlert(input: CreateEmergencyInput): Promise<EmergencyRecord>;
   countActiveDonorsByCity(city: string | null): Promise<number>;
   countCompatibleDonors(city: string | null, bloodType: string): Promise<number>;
+  upsertManualStock(input: UpsertManualStockInput): Promise<void>;
+  createAppointment(input: CreateAppointmentInput): Promise<void>;
+  findHospitalDonors(hospitalUserId: string, limit: number): Promise<LatestDonorRecord[]>;
+
+  listCenters(
+    city: string | undefined,
+    bloodType: string | undefined,
+    centers: CenterRecord[]
+  ): Promise<CenterRecord[]>;
+
+  createConversation(input: CreateConversationInput): Promise<void>;
+  findDirectConversation(userId: string, participantUserId: string): Promise<string | null>;
+  listConversations(userId: string, limit: number): Promise<ConversationSummaryRecord[]>;
+  listConversationParticipants(
+    conversationIds: string[]
+  ): Promise<ConversationParticipantRecord[]>;
+  listConversationMessages(
+    userId: string,
+    conversationId: string,
+    limit: number
+  ): Promise<ConversationMessageRecord[]>;
+  createConversationMessage(input: CreateConversationMessageInput): Promise<void>;
+  listContacts(userId: string, userRole: string): Promise<ContactRecord[]>;
 }

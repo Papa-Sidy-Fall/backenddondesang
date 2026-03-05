@@ -40,9 +40,29 @@ export interface AdminDashboardDto {
       id: string;
       nom: string;
       email: string;
+      telephone: string;
       groupe: string;
       date: string;
       ville: string;
+      quartier: string;
+      dateNaissance: string;
+    }>;
+    donneursDetails: Array<{
+      id: string;
+      nom: string;
+      email: string;
+      telephone: string;
+      groupe: string;
+      date: string;
+      ville: string;
+      quartier: string;
+      dateNaissance: string;
     }>;
   };
+  cntsStocks: Array<{
+    groupeSanguin: string;
+    quantite: number;
+    seuil: number;
+    statut: "critique" | "faible" | "normal";
+  }>;
 }

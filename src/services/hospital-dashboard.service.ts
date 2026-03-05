@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { AppointmentStatus } from "../domain/enums/appointment-status.enum.js";
+import { CampaignStatus } from "../domain/enums/campaign-status.enum.js";
 import { EmergencyPriority } from "../domain/enums/emergency-priority.enum.js";
 import type { User } from "../domain/entities/user.entity.js";
 import { UserRole } from "../domain/enums/user-role.enum.js";
@@ -30,11 +31,13 @@ export class HospitalDashboardService {
   async getDashboard(userId: string): Promise<HospitalDashboardDto> {
     const hospitalUser = await this.requireHospital(userId);
 
-    const [stocksRaw, appointmentsRaw, emergenciesRaw, activeDonors] = await Promise.all([
+    const [stocksRaw, appointmentsRaw, emergenciesRaw, activeDonors, campaigns, donors] = await Promise.all([
       this.dashboardRepository.getHospitalStocks(hospitalUser.id),
       this.dashboardRepository.getHospitalAppointments(hospitalUser.id, 100),
       this.dashboardRepository.listHospitalEmergencies(hospitalUser.id, 20),
       this.dashboardRepository.countActiveDonorsByCity(hospitalUser.city),
+      this.dashboardRepository.findActiveCampaigns(12),
+      this.dashboardRepository.findHospitalDonors(hospitalUser.id, 50),
     ]);
 
     const stocks = this.ensureStockShape(stocksRaw);
@@ -64,7 +67,9 @@ export class HospitalDashboardService {
       stocks: mappedStocks,
       rendezvous: appointmentsRaw.map((appointment) => ({
         id: appointment.id,
+        donorUserId: appointment.donorUserId,
         donneur: `${appointment.donorFirstName} ${appointment.donorLastName}`.trim(),
+        email: appointment.donorEmail,
         telephone: appointment.donorPhone ?? "-",
         groupeSanguin: appointment.donorBloodType ?? "-",
         date: appointment.appointmentDate,
@@ -81,6 +86,26 @@ export class HospitalDashboardService {
         notifiedDonors: emergency.notifiedDonors,
         positiveResponses: emergency.positiveResponses,
         donationsCompleted: emergency.donationsCompleted,
+      })),
+      donneurs: donors.map((donor) => ({
+        id: donor.id,
+        nom: `${donor.firstName} ${donor.lastName}`.trim(),
+        email: donor.email,
+        telephone: donor.phone ?? "-",
+        groupeSanguin: donor.bloodType ?? "-",
+        ville: donor.city ?? "-",
+        quartier: donor.district ?? "-",
+        dateNaissance: donor.birthDate ?? "-",
+        inscritLe: donor.createdAt.slice(0, 10),
+      })),
+      campagnes: campaigns.map((campaign) => ({
+        id: campaign.id,
+        titre: campaign.title,
+        description: campaign.description,
+        dateDebut: campaign.startDate,
+        dateFin: campaign.endDate,
+        lieu: campaign.location,
+        statut: this.mapCampaignStatus(campaign.status),
       })),
     };
   }
@@ -212,6 +237,17 @@ export class HospitalDashboardService {
     }
 
     return "green";
+  }
+
+  private mapCampaignStatus(status: string): "active" | "terminee" | "planifiee" {
+    switch (status) {
+      case CampaignStatus.ACTIVE:
+        return "active";
+      case CampaignStatus.COMPLETED:
+        return "terminee";
+      default:
+        return "planifiee";
+    }
   }
 
   private toRelativeTimeLabel(iso: string): string {

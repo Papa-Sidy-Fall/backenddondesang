@@ -42,7 +42,10 @@ export interface DonorDashboardDto {
   campagnes: Array<{
     id: string;
     titre: string;
+    description: string;
     date: string;
+    dateFin: string;
+    statut: string;
     lieu: string;
   }>;
 }

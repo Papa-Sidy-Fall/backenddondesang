@@ -42,6 +42,9 @@ model User {
   appointmentsAsHospital Appointment[] @relation("AppointmentHospital")
   stockItems         HospitalStock[]
   emergencyAlerts    EmergencyAlert[]
+  conversationsCreated Conversation[]
+  conversationLinks  ConversationParticipant[]
+  messagesSent       ConversationMessage[]
 
   @@index([email], map: "idx_users_email")
   @@index([googleId], map: "idx_users_google_id")
@@ -71,6 +74,7 @@ model Donation {
   id             String   @id @db.Uuid
   donorUserId    String   @map("donor_user_id") @db.Uuid
   hospitalUserId String?  @map("hospital_user_id") @db.Uuid
+  appointmentId  String?  @unique(map: "idx_donations_appointment_unique") @map("appointment_id") @db.Uuid
   centerName     String   @map("center_name") @db.VarChar(150)
   donationType   String   @map("donation_type") @db.VarChar(80)
   status         String   @default("COMPLETED") @db.VarChar(30)
@@ -79,6 +83,7 @@ model Donation {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   donor          User     @relation("DonationDonor", fields: [donorUserId], references: [id])
   hospital       User?    @relation("DonationHospital", fields: [hospitalUserId], references: [id])
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id])
 
   @@index([donorUserId], map: "idx_donations_donor")
   @@index([donationDate], map: "idx_donations_date")
@@ -89,6 +94,7 @@ model Appointment {
   id              String   @id @db.Uuid
   donorUserId     String   @map("donor_user_id") @db.Uuid
   hospitalUserId  String   @map("hospital_user_id") @db.Uuid
+  conversationId  String?  @map("conversation_id") @db.Uuid
   centerName      String   @map("center_name") @db.VarChar(150)
   appointmentDate DateTime @map("appointment_date") @db.Date
   appointmentTime String   @map("appointment_time") @db.VarChar(5)
@@ -98,11 +104,52 @@ model Appointment {
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   donor           User     @relation("AppointmentDonor", fields: [donorUserId], references: [id])
   hospital        User     @relation("AppointmentHospital", fields: [hospitalUserId], references: [id])
+  conversation    Conversation? @relation(fields: [conversationId], references: [id])
+  donation        Donation?
 
   @@index([hospitalUserId], map: "idx_appointments_hospital")
   @@index([donorUserId], map: "idx_appointments_donor")
   @@index([appointmentDate], map: "idx_appointments_date")
   @@map("appointments")
+}
+
+model Conversation {
+  id               String                    @id @db.Uuid
+  subject          String                    @db.VarChar(200)
+  createdByUserId  String                    @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy        User                      @relation(fields: [createdByUserId], references: [id])
+  participants     ConversationParticipant[]
+  messages         ConversationMessage[]
+  appointments     Appointment[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  conversationId String       @map("conversation_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  lastReadAt     DateTime?    @map("last_read_at") @db.Timestamptz(6)
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@id([conversationId, userId])
+  @@index([userId], map: "idx_conversation_participants_user")
+  @@map("conversation_participants")
+}
+
+model ConversationMessage {
+  id             String       @id @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  senderUserId   String       @map("sender_user_id") @db.Uuid
+  body           String
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  sender         User         @relation(fields: [senderUserId], references: [id])
+
+  @@index([conversationId, createdAt], map: "idx_conversation_messages_conversation")
+  @@map("conversation_messages")
 }
 
 model HospitalStock {
