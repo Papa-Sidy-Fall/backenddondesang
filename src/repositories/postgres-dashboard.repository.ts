@@ -727,8 +727,12 @@ export class PostgresDashboardRepository implements IDashboardRepository {
             units,
             appointment_id
           )
-          VALUES ($1, $2, $3, $4, $5, 'COMPLETED', $6::date, 1, $7)
-          ON CONFLICT (appointment_id) DO NOTHING
+          SELECT $1, $2, $3, $4, $5, 'COMPLETED', $6::date, 1, $7
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM donations
+            WHERE appointment_id = $7
+          )
           `,
           [
             randomUUID(),
@@ -1275,8 +1279,8 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         SELECT id, email, first_name, last_name, role, hospital_name, city
         FROM users
         WHERE id <> $1
-          AND role IN ('HOSPITAL', 'ADMIN')
-        ORDER BY role ASC, hospital_name ASC NULLS LAST, first_name ASC, last_name ASC
+          AND role = 'HOSPITAL'
+        ORDER BY hospital_name ASC NULLS LAST, first_name ASC, last_name ASC
         `,
         [userId]
       );
@@ -1298,7 +1302,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         FROM users u
         WHERE u.id <> $1
           AND (
-            u.role IN ('HOSPITAL', 'ADMIN')
+            u.role = 'HOSPITAL'
             OR (
               u.role = 'DONOR'
               AND EXISTS (
