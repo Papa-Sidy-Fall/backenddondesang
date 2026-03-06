@@ -25,6 +25,7 @@ model User {
   lastName           String           @map("last_name") @db.VarChar(100)
   role               String           @default("DONOR") @db.VarChar(20)
   hospitalName       String?          @map("hospital_name") @db.VarChar(150)
+  cni                String?          @db.VarChar(13)
   phone              String?          @db.VarChar(30)
   birthDate          DateTime?        @map("birth_date") @db.Date
   bloodType          String?          @map("blood_type") @db.VarChar(5)
@@ -48,6 +49,7 @@ model User {
 
   @@index([email], map: "idx_users_email")
   @@index([googleId], map: "idx_users_google_id")
+  @@index([cni], map: "idx_users_cni")
   @@map("users")
 }
 

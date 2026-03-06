@@ -78,6 +78,7 @@ export interface LatestDonorRecord {
   firstName: string;
   lastName: string;
   email: string;
+  cni: string | null;
   phone: string | null;
   bloodType: string | null;
   city: string | null;
@@ -104,6 +105,7 @@ export interface HospitalAppointmentRecord {
   centerName: string;
   donorFirstName: string;
   donorLastName: string;
+  donorCni: string | null;
   donorPhone: string | null;
   donorBloodType: string | null;
   donorEmail: string;

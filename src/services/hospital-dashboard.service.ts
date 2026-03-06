@@ -37,7 +37,7 @@ export class HospitalDashboardService {
       this.dashboardRepository.listHospitalEmergencies(hospitalUser.id, 20),
       this.dashboardRepository.countActiveDonorsByCity(hospitalUser.city),
       this.dashboardRepository.findActiveCampaigns(12),
-      this.dashboardRepository.findHospitalDonors(hospitalUser.id, 50),
+      this.dashboardRepository.findHospitalDonors(hospitalUser.id, 500),
     ]);
 
     const stocks = this.ensureStockShape(stocksRaw);
@@ -70,6 +70,7 @@ export class HospitalDashboardService {
         donorUserId: appointment.donorUserId,
         donneur: `${appointment.donorFirstName} ${appointment.donorLastName}`.trim(),
         email: appointment.donorEmail,
+        cni: appointment.donorCni ?? "-",
         telephone: appointment.donorPhone ?? "-",
         groupeSanguin: appointment.donorBloodType ?? "-",
         date: appointment.appointmentDate,
@@ -91,6 +92,7 @@ export class HospitalDashboardService {
         id: donor.id,
         nom: `${donor.firstName} ${donor.lastName}`.trim(),
         email: donor.email,
+        cni: donor.cni ?? "-",
         telephone: donor.phone ?? "-",
         groupeSanguin: donor.bloodType ?? "-",
         ville: donor.city ?? "-",

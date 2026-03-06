@@ -110,6 +110,7 @@ interface LatestDonorRow {
   first_name: string;
   last_name: string;
   email: string;
+  cni: string | null;
   phone: string | null;
   blood_type: string | null;
   city: string | null;
@@ -136,6 +137,7 @@ interface HospitalAppointmentRow {
   center_name: string;
   donor_first_name: string;
   donor_last_name: string;
+  donor_cni: string | null;
   donor_email: string;
   donor_phone: string | null;
   donor_blood_type: string | null;
@@ -505,6 +507,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         first_name,
         last_name,
         email,
+        cni,
         phone,
         blood_type,
         city,
@@ -524,6 +527,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       firstName: row.first_name,
       lastName: row.last_name,
       email: row.email,
+      cni: row.cni,
       phone: row.phone,
       bloodType: row.blood_type,
       city: row.city,
@@ -541,6 +545,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         first_name,
         last_name,
         email,
+        cni,
         phone,
         blood_type,
         city,
@@ -560,6 +565,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       firstName: row.first_name,
       lastName: row.last_name,
       email: row.email,
+      cni: row.cni,
       phone: row.phone,
       bloodType: row.blood_type,
       city: row.city,
@@ -605,6 +611,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         a.center_name,
         u.first_name AS donor_first_name,
         u.last_name AS donor_last_name,
+        u.cni AS donor_cni,
         u.email AS donor_email,
         u.phone AS donor_phone,
         u.blood_type AS donor_blood_type,
@@ -630,6 +637,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       centerName: row.center_name,
       donorFirstName: row.donor_first_name,
       donorLastName: row.donor_last_name,
+      donorCni: row.donor_cni,
       donorEmail: row.donor_email,
       donorPhone: row.donor_phone,
       donorBloodType: row.donor_blood_type,
@@ -991,6 +999,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         u.first_name,
         u.last_name,
         u.email,
+        u.cni,
         u.phone,
         u.blood_type,
         u.city,
@@ -1010,6 +1019,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       firstName: row.first_name,
       lastName: row.last_name,
       email: row.email,
+      cni: row.cni,
       phone: row.phone,
       bloodType: row.blood_type,
       city: row.city,

@@ -8,6 +8,7 @@ export interface User {
   lastName: string;
   role: UserRole;
   hospitalName: string | null;
+  cni: string | null;
   phone: string | null;
   birthDate: string | null;
   bloodType: string | null;

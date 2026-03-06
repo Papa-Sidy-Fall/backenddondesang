@@ -9,6 +9,7 @@ interface UserRow {
   last_name: string;
   role: string;
   hospital_name: string | null;
+  cni: string | null;
   phone: string | null;
   birth_date: string | null;
   blood_type: string | null;
@@ -51,6 +52,36 @@ export class PostgresUserRepository implements IUserRepository {
     return result.rowCount ? this.mapRowToEntity(result.rows[0]) : null;
   }
 
+  async findDonorByPhone(phone: string): Promise<User | null> {
+    const result = await this.pool.query<UserRow>(
+      `
+      SELECT *
+      FROM users
+      WHERE role = 'DONOR'
+        AND phone = $1
+      LIMIT 1
+      `,
+      [phone]
+    );
+
+    return result.rowCount ? this.mapRowToEntity(result.rows[0]) : null;
+  }
+
+  async findDonorByCni(cni: string): Promise<User | null> {
+    const result = await this.pool.query<UserRow>(
+      `
+      SELECT *
+      FROM users
+      WHERE role = 'DONOR'
+        AND cni = $1
+      LIMIT 1
+      `,
+      [cni]
+    );
+
+    return result.rowCount ? this.mapRowToEntity(result.rows[0]) : null;
+  }
+
   async create(input: CreateUserInput): Promise<User> {
     const result = await this.pool.query<UserRow>(
       `
@@ -61,6 +92,7 @@ export class PostgresUserRepository implements IUserRepository {
         last_name,
         role,
         hospital_name,
+        cni,
         phone,
         birth_date,
         blood_type,
@@ -70,7 +102,7 @@ export class PostgresUserRepository implements IUserRepository {
         auth_provider,
         google_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::date, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10, $11, $12, $13, $14, $15)
       RETURNING *
       `,
       [
@@ -80,6 +112,7 @@ export class PostgresUserRepository implements IUserRepository {
         input.lastName,
         input.role ?? "DONOR",
         input.hospitalName ?? null,
+        input.cni ?? null,
         input.phone ?? null,
         input.birthDate ?? null,
         input.bloodType ?? null,
@@ -127,6 +160,7 @@ export class PostgresUserRepository implements IUserRepository {
       lastName: row.last_name,
       role: row.role as User["role"],
       hospitalName: row.hospital_name,
+      cni: row.cni,
       phone: row.phone,
       birthDate: row.birth_date,
       bloodType: row.blood_type,

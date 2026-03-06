@@ -26,25 +26,68 @@ export class AuthService {
     const existing = await this.userRepository.findByEmail(dto.email);
 
     if (existing) {
-      throw new AppError("Email already used", 409, "EMAIL_ALREADY_USED");
+      throw new AppError("Un compte existe déjà avec cette adresse email.", 409, "EMAIL_ALREADY_USED");
+    }
+
+    const existingByPhone = await this.userRepository.findDonorByPhone(dto.phone);
+    if (existingByPhone) {
+      throw new AppError(
+        "Un compte donneur existe déjà avec ce numéro de téléphone.",
+        409,
+        "PHONE_ALREADY_USED"
+      );
+    }
+
+    const existingByCni = await this.userRepository.findDonorByCni(dto.cni);
+    if (existingByCni) {
+      throw new AppError("Un compte donneur existe déjà avec ce CNI.", 409, "CNI_ALREADY_USED");
     }
 
     const passwordHash = await this.passwordHashService.hash(dto.password);
 
-    const user = await this.userRepository.create({
-      id: randomUUID(),
-      email: dto.email,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      birthDate: dto.birthDate,
-      bloodType: dto.bloodType,
-      city: dto.city,
-      district: dto.district,
-      passwordHash,
-      role: UserRole.DONOR,
-      authProvider: AuthProvider.LOCAL,
-    });
+    let user: User;
+    try {
+      user = await this.userRepository.create({
+        id: randomUUID(),
+        email: dto.email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        cni: dto.cni,
+        phone: dto.phone,
+        birthDate: dto.birthDate,
+        bloodType: dto.bloodType,
+        city: dto.city,
+        district: dto.district,
+        passwordHash,
+        role: UserRole.DONOR,
+        authProvider: AuthProvider.LOCAL,
+      });
+    } catch (error: unknown) {
+      const pgError = error as { code?: string; constraint?: string };
+      if (pgError.code === "23505") {
+        if (pgError.constraint === "idx_users_donor_cni_unique") {
+          throw new AppError("Un compte donneur existe déjà avec ce CNI.", 409, "CNI_ALREADY_USED");
+        }
+
+        if (pgError.constraint === "idx_users_donor_phone_unique") {
+          throw new AppError(
+            "Un compte donneur existe déjà avec ce numéro de téléphone.",
+            409,
+            "PHONE_ALREADY_USED"
+          );
+        }
+
+        if (pgError.constraint === "users_email_key") {
+          throw new AppError(
+            "Un compte existe déjà avec cette adresse email.",
+            409,
+            "EMAIL_ALREADY_USED"
+          );
+        }
+      }
+
+      throw error;
+    }
 
     this.logger.info("Donor registered", { userId: user.id, email: user.email });
 

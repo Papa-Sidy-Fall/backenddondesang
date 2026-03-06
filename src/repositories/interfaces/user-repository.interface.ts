@@ -9,6 +9,7 @@ export interface CreateUserInput {
   lastName: string;
   role?: UserRole;
   hospitalName?: string | null;
+  cni?: string | null;
   phone?: string | null;
   birthDate?: string | null;
   bloodType?: string | null;
@@ -23,6 +24,8 @@ export interface IUserRepository {
   findById(userId: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
   findByGoogleId(googleId: string): Promise<User | null>;
+  findDonorByPhone(phone: string): Promise<User | null>;
+  findDonorByCni(cni: string): Promise<User | null>;
   create(input: CreateUserInput): Promise<User>;
   attachGoogleIdentity(userId: string, googleId: string): Promise<void>;
   updatePassword(userId: string, passwordHash: string): Promise<void>;

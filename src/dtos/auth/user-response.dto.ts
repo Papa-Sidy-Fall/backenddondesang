@@ -7,6 +7,7 @@ export interface UserResponseDto {
   lastName: string;
   role: string;
   hospitalName: string | null;
+  cni: string | null;
   phone: string | null;
   birthDate: string | null;
   bloodType: string | null;
@@ -25,6 +26,7 @@ export function toUserResponseDto(user: User): UserResponseDto {
     lastName: user.lastName,
     role: user.role,
     hospitalName: user.hospitalName,
+    cni: user.cni,
     phone: user.phone,
     birthDate: user.birthDate,
     bloodType: user.bloodType,

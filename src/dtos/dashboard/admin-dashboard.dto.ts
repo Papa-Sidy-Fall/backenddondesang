@@ -40,6 +40,7 @@ export interface AdminDashboardDto {
       id: string;
       nom: string;
       email: string;
+      cni: string;
       telephone: string;
       groupe: string;
       date: string;
@@ -51,6 +52,7 @@ export interface AdminDashboardDto {
       id: string;
       nom: string;
       email: string;
+      cni: string;
       telephone: string;
       groupe: string;
       date: string;
