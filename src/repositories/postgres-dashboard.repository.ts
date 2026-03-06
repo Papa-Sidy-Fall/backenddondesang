@@ -986,32 +986,24 @@ export class PostgresDashboardRepository implements IDashboardRepository {
   async findHospitalDonors(hospitalUserId: string, limit: number): Promise<LatestDonorRecord[]> {
     const result = await this.pool.query<LatestDonorRow>(
       `
-      WITH donor_activity AS (
-        SELECT
-          a.donor_user_id AS donor_id,
-          MAX(a.updated_at) AS last_activity
-        FROM appointments a
-        WHERE a.hospital_user_id = $1
-        GROUP BY a.donor_user_id
-      )
       SELECT
-        u.id,
-        u.first_name,
-        u.last_name,
-        u.email,
-        u.cni,
-        u.phone,
-        u.blood_type,
-        u.city,
-        u.district,
-        u.birth_date,
-        u.created_at
-      FROM donor_activity da
-      INNER JOIN users u ON u.id = da.donor_id
-      ORDER BY da.last_activity DESC
-      LIMIT $2
+        id,
+        first_name,
+        last_name,
+        email,
+        cni,
+        phone,
+        blood_type,
+        city,
+        district,
+        birth_date,
+        created_at
+      FROM users
+      WHERE role = 'DONOR'
+      ORDER BY created_at DESC
+      LIMIT $1
       `,
-      [hospitalUserId, limit]
+      [limit]
     );
 
     return result.rows.map((row) => ({
