@@ -97,6 +97,16 @@ export interface StockRecord {
   updatedAt: string;
 }
 
+export interface HospitalNetworkStockRecord {
+  hospitalUserId: string;
+  hospitalName: string;
+  city: string | null;
+  bloodType: string;
+  quantity: number;
+  threshold: number;
+  updatedAt: string | null;
+}
+
 export interface HospitalAppointmentRecord {
   id: string;
   donorUserId: string;
@@ -246,6 +256,7 @@ export interface IDashboardRepository {
   listDetailedDonors(limit: number): Promise<LatestDonorRecord[]>;
 
   getHospitalStocks(hospitalUserId: string): Promise<StockRecord[]>;
+  listHospitalStockOverview(excludeHospitalUserId: string): Promise<HospitalNetworkStockRecord[]>;
   getHospitalAppointments(hospitalUserId: string, limit: number): Promise<HospitalAppointmentRecord[]>;
   updateHospitalAppointmentStatus(
     hospitalUserId: string,

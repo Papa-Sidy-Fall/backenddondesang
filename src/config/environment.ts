@@ -19,8 +19,6 @@ const envSchema = z.object({
   DEV_LOG_EMAIL: z.email().default("dev.logs@dondesang.sn"),
   DEV_LOG_PASSWORD: z.string().min(8).default("DevLogs@2026"),
   LOG_RETENTION_SIZE: z.coerce.number().int().positive().default(500),
-  DEFAULT_ADMIN_EMAIL: z.email().default("admin@dondesang.sn"),
-  DEFAULT_ADMIN_PASSWORD: z.string().min(8).default("Admin@2026"),
   DEFAULT_DANTEC_EMAIL: z.email().default("dantec@dondesang.sn"),
   DEFAULT_DANTEC_PASSWORD: z.string().min(8).default("Dantec@2026"),
   DEFAULT_FANN_EMAIL: z.email().default("fann@dondesang.sn"),
@@ -76,10 +74,6 @@ export const env = {
   },
   logRetentionSize: parsed.LOG_RETENTION_SIZE,
   defaultAccounts: {
-    admin: {
-      email: parsed.DEFAULT_ADMIN_EMAIL,
-      password: parsed.DEFAULT_ADMIN_PASSWORD,
-    },
     dantec: {
       email: parsed.DEFAULT_DANTEC_EMAIL,
       password: parsed.DEFAULT_DANTEC_PASSWORD,

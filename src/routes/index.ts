@@ -89,6 +89,12 @@ export function createApiRouter(dependencies: RouteDependencies): Router {
   );
 
   router.get(
+    "/dashboards/cnts",
+    authMiddleware(dependencies.tokenService),
+    dependencies.adminDashboardController.getDashboard
+  );
+
+  router.get(
     "/dashboards/admin",
     authMiddleware(dependencies.tokenService),
     dependencies.adminDashboardController.getDashboard
@@ -137,9 +143,21 @@ export function createApiRouter(dependencies: RouteDependencies): Router {
   );
 
   router.post(
+    "/cnts/campaigns",
+    authMiddleware(dependencies.tokenService),
+    dependencies.adminDashboardController.createCampaign
+  );
+
+  router.post(
     "/admin/campaigns",
     authMiddleware(dependencies.tokenService),
     dependencies.adminDashboardController.createCampaign
+  );
+
+  router.delete(
+    "/cnts/campaigns/:id",
+    authMiddleware(dependencies.tokenService),
+    dependencies.adminDashboardController.deleteCampaign
   );
 
   router.delete(

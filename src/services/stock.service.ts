@@ -21,7 +21,7 @@ export class StockService {
       throw new AppError("User not found", 404, "USER_NOT_FOUND");
     }
 
-    if (![UserRole.ADMIN, UserRole.HOSPITAL].includes(user.role)) {
+    if (user.role !== UserRole.HOSPITAL) {
       throw new AppError("Forbidden", 403, "FORBIDDEN");
     }
 
@@ -48,7 +48,7 @@ export class StockService {
       throw new AppError("User not found", 404, "USER_NOT_FOUND");
     }
 
-    if (![UserRole.ADMIN, UserRole.HOSPITAL].includes(user.role)) {
+    if (user.role !== UserRole.HOSPITAL) {
       throw new AppError("Forbidden", 403, "FORBIDDEN");
     }
 

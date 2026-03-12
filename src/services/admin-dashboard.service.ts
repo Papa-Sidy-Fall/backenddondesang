@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { CampaignStatus } from "../domain/enums/campaign-status.enum.js";
 import type { User } from "../domain/entities/user.entity.js";
-import { UserRole } from "../domain/enums/user-role.enum.js";
 import type { CreateCampaignDto } from "../dtos/admin/create-campaign.dto.js";
 import type { AdminDashboardDto } from "../dtos/dashboard/admin-dashboard.dto.js";
 import type { IDashboardRepository } from "../repositories/interfaces/dashboard-repository.interface.js";
@@ -11,6 +10,7 @@ import {
   DEFAULT_STOCK_THRESHOLDS,
   resolveStockThreshold,
 } from "../shared/constants/stock-thresholds.js";
+import { canAccessCentralDashboard, CNTS_EMAIL, isCntsUser } from "../shared/auth/cnts-user.js";
 
 const BLOOD_COLOR_MAP: Record<string, string> = {
   "O+": "bg-red-500",
@@ -31,7 +31,8 @@ export class AdminDashboardService {
   ) {}
 
   async getDashboard(userId: string): Promise<AdminDashboardDto> {
-    const admin = await this.requireAdmin(userId);
+    const manager = await this.requireCentralManager(userId);
+    const cntsUserId = await this.resolveCntsUserId(manager);
 
     const [
       roleCounts,
@@ -45,6 +46,7 @@ export class AdminDashboardService {
       latestDonors,
       detailedDonors,
       cntsStocksRaw,
+      hospitalNetworkStocksRaw,
     ] = await Promise.all([
       this.dashboardRepository.getRoleCounts(),
       this.dashboardRepository.getDonationsThisMonth(),
@@ -56,11 +58,14 @@ export class AdminDashboardService {
       this.dashboardRepository.listCampaigns(),
       this.dashboardRepository.listLatestDonors(5),
       this.dashboardRepository.listDetailedDonors(50),
-      this.dashboardRepository.getHospitalStocks(admin.id),
+      this.dashboardRepository.getHospitalStocks(cntsUserId),
+      this.dashboardRepository.listHospitalStockOverview(cntsUserId),
     ]);
 
     const monthlySeries = this.buildMonthlySeries(monthlyDonations, 6);
     const repartition = this.buildBloodDistribution(bloodDistribution);
+    const hopitauxStocks = this.buildHospitalNetworkStocks(hospitalNetworkStocksRaw);
+    const partnerHospitals = hopitauxStocks.length;
 
     const regionalDonationMap = new Map(regionalDonations.map((row) => [row.city, row.donations]));
 
@@ -75,7 +80,7 @@ export class AdminDashboardService {
       statistiques: {
         totalDonors: roleCounts.donors,
         donationsThisMonth,
-        partnerHospitals: roleCounts.hospitals,
+        partnerHospitals,
         activeCampaigns,
       },
       evolutionMensuelle: monthlySeries,
@@ -99,8 +104,8 @@ export class AdminDashboardService {
       })),
       utilisateurs: {
         donneursActifs: roleCounts.donors,
-        hopitauxPartenaires: roleCounts.hospitals,
-        administrateurs: roleCounts.admins,
+        hopitauxPartenaires: partnerHospitals,
+        coordinationNationale: 1,
         derniersDonneurs: latestDonors.map((donor) => ({
           id: donor.id,
           nom: `${donor.firstName} ${donor.lastName}`.trim(),
@@ -127,11 +132,13 @@ export class AdminDashboardService {
         })),
       },
       cntsStocks,
+      hopitauxStocks,
     };
   }
 
   async createCampaign(userId: string, dto: CreateCampaignDto): Promise<void> {
-    const admin = await this.requireAdmin(userId);
+    const manager = await this.requireCentralManager(userId);
+    const cntsUserId = await this.resolveCntsUserId(manager);
 
     const status = dto.statut ?? this.deriveCampaignStatus(dto.dateDebut);
 
@@ -144,12 +151,12 @@ export class AdminDashboardService {
       targetDonations: dto.objectif,
       status,
       location: dto.lieu,
-      createdByUserId: admin.id,
+      createdByUserId: cntsUserId,
     });
   }
 
   async deleteCampaign(userId: string, campaignId: string): Promise<void> {
-    await this.requireAdmin(userId);
+    await this.requireCentralManager(userId);
 
     const deleted = await this.dashboardRepository.deleteCampaign(campaignId);
 
@@ -158,18 +165,27 @@ export class AdminDashboardService {
     }
   }
 
-  private async requireAdmin(userId: string): Promise<User> {
+  private async requireCentralManager(userId: string): Promise<User> {
     const user = await this.userRepository.findById(userId);
 
     if (!user) {
       throw new AppError("User not found", 404, "USER_NOT_FOUND");
     }
 
-    if (user.role !== UserRole.ADMIN) {
+    if (!canAccessCentralDashboard(user)) {
       throw new AppError("Forbidden", 403, "FORBIDDEN");
     }
 
     return user;
+  }
+
+  private async resolveCntsUserId(user: User): Promise<string> {
+    if (isCntsUser(user)) {
+      return user.id;
+    }
+
+    const cntsUser = await this.userRepository.findByEmail(CNTS_EMAIL);
+    return cntsUser?.id ?? user.id;
   }
 
   private deriveCampaignStatus(startDate: string): CampaignStatus {
@@ -245,6 +261,70 @@ export class AdminDashboardService {
         threshold: resolveStockThreshold(item.bloodType, existing?.threshold),
       };
     });
+  }
+
+  private buildHospitalNetworkStocks(
+    stocks: Array<{
+      hospitalUserId: string;
+      hospitalName: string;
+      city: string | null;
+      bloodType: string;
+      quantity: number;
+      threshold: number;
+    }>
+  ): AdminDashboardDto["hopitauxStocks"] {
+    const grouped = new Map<
+      string,
+      {
+        id: string;
+        nom: string;
+        ville: string;
+        rows: Array<{ bloodType: string; quantity: number; threshold: number }>;
+      }
+    >();
+
+    for (const stock of stocks) {
+      const existing = grouped.get(stock.hospitalUserId) ?? {
+        id: stock.hospitalUserId,
+        nom: stock.hospitalName,
+        ville: stock.city ?? "-",
+        rows: [],
+      };
+
+      existing.rows.push({
+        bloodType: stock.bloodType,
+        quantity: stock.quantity,
+        threshold: stock.threshold,
+      });
+
+      grouped.set(stock.hospitalUserId, existing);
+    }
+
+    return Array.from(grouped.values())
+      .map((hospital) => {
+        const normalizedStocks = this.ensureStockShape(hospital.rows).map((stock) => ({
+          groupeSanguin: stock.bloodType,
+          quantite: stock.quantity,
+          seuil: stock.threshold,
+          statut: this.getStockStatus(stock.quantity, stock.threshold),
+        }));
+
+        return {
+          id: hospital.id,
+          nom: hospital.nom,
+          ville: hospital.ville,
+          totalUnites: normalizedStocks.reduce((total, stock) => total + stock.quantite, 0),
+          groupesCritiques: normalizedStocks.filter((stock) => stock.statut === "critique").length,
+          stocks: normalizedStocks,
+        };
+      })
+      .sort((left, right) => {
+        if (right.groupesCritiques !== left.groupesCritiques) {
+          return right.groupesCritiques - left.groupesCritiques;
+        }
+
+        return left.nom.localeCompare(right.nom, "fr");
+      });
   }
 
   private getStockStatus(quantity: number, threshold: number): "critique" | "faible" | "normal" {

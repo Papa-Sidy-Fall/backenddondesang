@@ -31,6 +31,7 @@ import { DevAuthService } from "./services/dev-auth.service.js";
 import { DonorDashboardService } from "./services/donor-dashboard.service.js";
 import { GoogleOAuthService } from "./services/google-oauth.service.js";
 import { HospitalDashboardService } from "./services/hospital-dashboard.service.js";
+import { LegacyAdminMergeService } from "./services/legacy-admin-merge.service.js";
 import { CenterService } from "./services/center.service.js";
 import { MessageService } from "./services/message.service.js";
 import { PasswordHashService } from "./services/password-hash.service.js";
@@ -93,11 +94,13 @@ export async function createApplication(): Promise<AppDependencies> {
   const accountSeedService = new AccountSeedService(userRepository, passwordHashService, logger);
   const googleOAuthService = new GoogleOAuthService(authService, logger);
   const dbBootstrapService = new DatabaseBootstrapService(dbPool);
+  const legacyAdminMergeService = new LegacyAdminMergeService(dbPool, userRepository, logger);
 
   logger.info("Initializing database schema");
   await dbBootstrapService.initialize();
   logger.info("Database schema initialized");
   await accountSeedService.ensureDefaultAccounts();
+  await legacyAdminMergeService.mergeIfNeeded();
 
   const healthController = new HealthController(dbPool);
   const authController = new AuthController(authService, googleOAuthService);

@@ -8,7 +8,7 @@ export const openApiDocument = {
     title: "DonDeSang API",
     version: "1.0.0",
     description:
-      "API REST pour donneurs, hôpitaux, CNTS (administration), rendez-vous, stocks, campagnes, messagerie et logs.",
+      "API REST pour donneurs, hôpitaux, CNTS, rendez-vous, stocks, campagnes, messagerie et logs.",
   },
   servers: [
     { url: `http://localhost:${env.port}`, description: "Local" },
@@ -96,9 +96,9 @@ export const openApiDocument = {
         responses: { "200": { description: "Dashboard" } },
       },
     },
-    "/api/v1/dashboards/admin": {
+    "/api/v1/dashboards/cnts": {
       get: {
-        summary: "Admin dashboard",
+        summary: "CNTS dashboard",
         security: [{ bearerAuth: [] }],
         responses: { "200": { description: "Dashboard" } },
       },
@@ -126,16 +126,16 @@ export const openApiDocument = {
         responses: { "204": { description: "Updated" } },
       },
     },
-    "/api/v1/admin/campaigns": {
+    "/api/v1/cnts/campaigns": {
       post: {
-        summary: "Create campaign",
+        summary: "Create CNTS campaign",
         security: [{ bearerAuth: [] }],
         responses: { "201": { description: "Created" } },
       },
     },
-    "/api/v1/admin/campaigns/{id}": {
+    "/api/v1/cnts/campaigns/{id}": {
       delete: {
-        summary: "Delete campaign",
+        summary: "Delete CNTS campaign",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         responses: { "204": { description: "Deleted" } },

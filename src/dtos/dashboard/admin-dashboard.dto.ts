@@ -35,7 +35,7 @@ export interface AdminDashboardDto {
   utilisateurs: {
     donneursActifs: number;
     hopitauxPartenaires: number;
-    administrateurs: number;
+    coordinationNationale: number;
     derniersDonneurs: Array<{
       id: string;
       nom: string;
@@ -66,5 +66,18 @@ export interface AdminDashboardDto {
     quantite: number;
     seuil: number;
     statut: "critique" | "faible" | "normal";
+  }>;
+  hopitauxStocks: Array<{
+    id: string;
+    nom: string;
+    ville: string;
+    totalUnites: number;
+    groupesCritiques: number;
+    stocks: Array<{
+      groupeSanguin: string;
+      quantite: number;
+      seuil: number;
+      statut: "critique" | "faible" | "normal";
+    }>;
   }>;
 }

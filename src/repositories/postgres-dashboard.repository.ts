@@ -22,6 +22,7 @@ import type {
   DonationHistoryRecord,
   EmergencyRecord,
   HospitalAppointmentRecord,
+  HospitalNetworkStockRecord,
   IDashboardRepository,
   LatestDonorRecord,
   MonthlyDonationRecord,
@@ -131,6 +132,16 @@ interface StockRow {
   quantity: number;
   threshold: number;
   updated_at: Date;
+}
+
+interface HospitalNetworkStockRow {
+  hospital_user_id: string;
+  hospital_name: string | null;
+  city: string | null;
+  blood_type: string;
+  quantity: number;
+  threshold: number | null;
+  updated_at: Date | null;
 }
 
 interface HospitalAppointmentRow {
@@ -600,6 +611,46 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       quantity: row.quantity,
       threshold: row.threshold,
       updatedAt: row.updated_at.toISOString(),
+    }));
+  }
+
+  async listHospitalStockOverview(excludeHospitalUserId: string): Promise<HospitalNetworkStockRecord[]> {
+    const result = await this.pool.query<HospitalNetworkStockRow>(
+      `
+      WITH blood_types AS (
+        SELECT blood_type
+        FROM (
+          VALUES ('A+'), ('A-'), ('B+'), ('B-'), ('AB+'), ('AB-'), ('O+'), ('O-')
+        ) AS value_set(blood_type)
+      )
+      SELECT
+        u.id AS hospital_user_id,
+        COALESCE(NULLIF(u.hospital_name, ''), CONCAT(u.first_name, ' ', u.last_name)) AS hospital_name,
+        u.city,
+        bt.blood_type,
+        COALESCE(hs.quantity, 0)::int AS quantity,
+        hs.threshold,
+        hs.updated_at
+      FROM users u
+      CROSS JOIN blood_types bt
+      LEFT JOIN hospital_stocks hs
+        ON hs.hospital_user_id = u.id
+       AND hs.blood_type = bt.blood_type
+      WHERE u.role = 'HOSPITAL'
+        AND u.id <> $1
+      ORDER BY hospital_name ASC, bt.blood_type ASC
+      `,
+      [excludeHospitalUserId]
+    );
+
+    return result.rows.map((row) => ({
+      hospitalUserId: row.hospital_user_id,
+      hospitalName: row.hospital_name ?? "Centre non renseigné",
+      city: row.city,
+      bloodType: row.blood_type,
+      quantity: row.quantity,
+      threshold: row.threshold ?? 0,
+      updatedAt: row.updated_at?.toISOString() ?? null,
     }));
   }
 
@@ -1378,8 +1429,8 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       SELECT id, email, first_name, last_name, role, hospital_name, city
       FROM users
       WHERE id <> $1
-        AND role IN ('HOSPITAL', 'ADMIN')
-      ORDER BY role ASC, hospital_name ASC NULLS LAST, first_name ASC, last_name ASC
+        AND role = 'HOSPITAL'
+      ORDER BY hospital_name ASC NULLS LAST, first_name ASC, last_name ASC
       `,
       [userId]
     );

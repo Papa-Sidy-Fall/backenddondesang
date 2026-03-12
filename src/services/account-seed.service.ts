@@ -15,16 +15,6 @@ export class AccountSeedService {
   ) {}
 
   async ensureDefaultAccounts(): Promise<void> {
-    await this.ensureAccount({
-      email: env.defaultAccounts.admin.email,
-      password: env.defaultAccounts.admin.password,
-      firstName: "Super",
-      lastName: "Admin",
-      role: UserRole.ADMIN,
-      hospitalName: null,
-      city: "Dakar",
-    });
-
     // Keep legacy defaults for backward compatibility with existing deployments.
     await this.ensureAccount({
       email: env.defaultAccounts.dantec.email,
