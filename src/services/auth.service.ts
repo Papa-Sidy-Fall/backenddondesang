@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { AuthProvider } from "../domain/enums/auth-provider.enum.js";
 import type { User } from "../domain/entities/user.entity.js";
+import { UserRole } from "../domain/enums/user-role.enum.js";
 import type { AuthResponseDto } from "../dtos/auth/auth-response.dto.js";
+import type { ChangePasswordDto } from "../dtos/auth/change-password.dto.js";
 import type { GoogleIdentityPayload } from "../dtos/auth/google-oauth.dto.js";
 import type { LoginDonorDto } from "../dtos/auth/login-donor.dto.js";
 import type { RegisterDonorDto } from "../dtos/auth/register-donor.dto.js";
@@ -24,24 +26,68 @@ export class AuthService {
     const existing = await this.userRepository.findByEmail(dto.email);
 
     if (existing) {
-      throw new AppError("Email already used", 409, "EMAIL_ALREADY_USED");
+      throw new AppError("Un compte existe déjà avec cette adresse email.", 409, "EMAIL_ALREADY_USED");
+    }
+
+    const existingByPhone = await this.userRepository.findDonorByPhone(dto.phone);
+    if (existingByPhone) {
+      throw new AppError(
+        "Un compte donneur existe déjà avec ce numéro de téléphone.",
+        409,
+        "PHONE_ALREADY_USED"
+      );
+    }
+
+    const existingByCni = await this.userRepository.findDonorByCni(dto.cni);
+    if (existingByCni) {
+      throw new AppError("Un compte donneur existe déjà avec ce CNI.", 409, "CNI_ALREADY_USED");
     }
 
     const passwordHash = await this.passwordHashService.hash(dto.password);
 
-    const user = await this.userRepository.create({
-      id: randomUUID(),
-      email: dto.email,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      birthDate: dto.birthDate,
-      bloodType: dto.bloodType,
-      city: dto.city,
-      district: dto.district,
-      passwordHash,
-      authProvider: AuthProvider.LOCAL,
-    });
+    let user: User;
+    try {
+      user = await this.userRepository.create({
+        id: randomUUID(),
+        email: dto.email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        cni: dto.cni,
+        phone: dto.phone,
+        birthDate: dto.birthDate,
+        bloodType: dto.bloodType,
+        city: dto.city,
+        district: dto.district,
+        passwordHash,
+        role: UserRole.DONOR,
+        authProvider: AuthProvider.LOCAL,
+      });
+    } catch (error: unknown) {
+      const pgError = error as { code?: string; constraint?: string };
+      if (pgError.code === "23505") {
+        if (pgError.constraint === "idx_users_donor_cni_unique") {
+          throw new AppError("Un compte donneur existe déjà avec ce CNI.", 409, "CNI_ALREADY_USED");
+        }
+
+        if (pgError.constraint === "idx_users_donor_phone_unique") {
+          throw new AppError(
+            "Un compte donneur existe déjà avec ce numéro de téléphone.",
+            409,
+            "PHONE_ALREADY_USED"
+          );
+        }
+
+        if (pgError.constraint === "users_email_key") {
+          throw new AppError(
+            "Un compte existe déjà avec cette adresse email.",
+            409,
+            "EMAIL_ALREADY_USED"
+          );
+        }
+      }
+
+      throw error;
+    }
 
     this.logger.info("Donor registered", { userId: user.id, email: user.email });
 
@@ -69,7 +115,7 @@ export class AuthService {
       throw new AppError("Invalid credentials", 401, "INVALID_CREDENTIALS");
     }
 
-    this.logger.info("Donor logged in", { userId: user.id, email: user.email });
+    this.logger.info("User logged in", { userId: user.id, email: user.email, role: user.role });
 
     return this.buildAuthResponse(user.id, user.email, user);
   }
@@ -112,6 +158,7 @@ export class AuthService {
       email: identity.email,
       firstName: identity.firstName || "Google",
       lastName: identity.lastName || "User",
+      role: UserRole.DONOR,
       authProvider: AuthProvider.GOOGLE,
       googleId: identity.googleId,
     });
@@ -124,12 +171,49 @@ export class AuthService {
     return this.buildAuthResponse(created.id, created.email, created);
   }
 
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+
+    if (!user) {
+      throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    }
+
+    if (!user.passwordHash) {
+      throw new AppError(
+        "Password change is not available for OAuth-only account",
+        400,
+        "PASSWORD_CHANGE_NOT_AVAILABLE"
+      );
+    }
+
+    const isCurrentPasswordValid = await this.passwordHashService.compare(
+      dto.currentPassword,
+      user.passwordHash
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new AppError("Current password is incorrect", 400, "INVALID_CURRENT_PASSWORD");
+    }
+
+    const newPasswordHash = await this.passwordHashService.hash(dto.newPassword);
+    await this.userRepository.updatePassword(user.id, newPasswordHash);
+
+    this.logger.info("Password updated", {
+      userId: user.id,
+      role: user.role,
+    });
+  }
+
   private buildAuthResponse(
     userId: string,
     email: string,
     user: User
   ): AuthResponseDto {
-    const accessToken = this.tokenService.signAccessToken({ sub: userId, email });
+    const accessToken = this.tokenService.signAccessToken({
+      sub: userId,
+      email,
+      role: user.role,
+    });
 
     return {
       accessToken,

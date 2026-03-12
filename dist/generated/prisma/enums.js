@@ -7,4 +7,7 @@
 *
 * 🟢 You can import this file directly.
 */
-export {};
+export const AuthProvider = {
+    LOCAL: 'LOCAL',
+    GOOGLE: 'GOOGLE'
+};

@@ -7,6 +7,7 @@ declare global {
       authUser?: {
         userId: string;
         email: string;
+        role?: string;
       };
     }
   }

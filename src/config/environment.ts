@@ -10,13 +10,19 @@ const envSchema = z.object({
   DB_PASSWORD: z.string().optional(),
   DB_NAME: z.string().optional(),
   JWT_SECRET: z.string().min(16).optional(),
-  JWT_EXPIRES_IN: z.string().default("7d"),
+  JWT_EXPIRES_IN: z.string().default("24h"),
   FRONTEND_URLS: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_CALLBACK_URL: z.string().url().optional(),
   DEV_LOG_TOKEN: z.string().optional(),
+  DEV_LOG_EMAIL: z.email().default("dev.logs@dondesang.sn"),
+  DEV_LOG_PASSWORD: z.string().min(8).default("DevLogs@2026"),
   LOG_RETENTION_SIZE: z.coerce.number().int().positive().default(500),
+  DEFAULT_DANTEC_EMAIL: z.email().default("dantec@dondesang.sn"),
+  DEFAULT_DANTEC_PASSWORD: z.string().min(8).default("Dantec@2026"),
+  DEFAULT_FANN_EMAIL: z.email().default("fann@dondesang.sn"),
+  DEFAULT_FANN_PASSWORD: z.string().min(8).default("Fann@2026"),
 });
 
 type ParsedEnvironment = z.infer<typeof envSchema>;
@@ -62,7 +68,21 @@ export const env = {
   googleClientSecret: parsed.GOOGLE_CLIENT_SECRET,
   googleCallbackUrl: parsed.GOOGLE_CALLBACK_URL,
   devLogToken: parsed.DEV_LOG_TOKEN,
+  devLogs: {
+    email: parsed.DEV_LOG_EMAIL,
+    password: parsed.DEV_LOG_PASSWORD,
+  },
   logRetentionSize: parsed.LOG_RETENTION_SIZE,
+  defaultAccounts: {
+    dantec: {
+      email: parsed.DEFAULT_DANTEC_EMAIL,
+      password: parsed.DEFAULT_DANTEC_PASSWORD,
+    },
+    fann: {
+      email: parsed.DEFAULT_FANN_EMAIL,
+      password: parsed.DEFAULT_FANN_PASSWORD,
+    },
+  },
 } as const;
 
 export type AppEnvironment = typeof env;

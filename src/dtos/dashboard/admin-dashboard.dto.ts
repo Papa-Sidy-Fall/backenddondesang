@@ -1,0 +1,83 @@
+export interface AdminDashboardDto {
+  statistiques: {
+    totalDonors: number;
+    donationsThisMonth: number;
+    partnerHospitals: number;
+    activeCampaigns: number;
+  };
+  evolutionMensuelle: Array<{
+    mois: string;
+    dons: number;
+    max: number;
+  }>;
+  repartitionGroupes: Array<{
+    groupe: string;
+    pourcentage: number;
+    couleur: string;
+  }>;
+  regions: Array<{
+    region: string;
+    donneurs: number;
+    dons: number;
+    centres: number;
+  }>;
+  campagnes: Array<{
+    id: string;
+    titre: string;
+    description: string;
+    dateDebut: string;
+    dateFin: string;
+    objectif: number;
+    collecte: number;
+    statut: "active" | "terminee" | "planifiee";
+    lieu: string;
+  }>;
+  utilisateurs: {
+    donneursActifs: number;
+    hopitauxPartenaires: number;
+    coordinationNationale: number;
+    derniersDonneurs: Array<{
+      id: string;
+      nom: string;
+      email: string;
+      cni: string;
+      telephone: string;
+      groupe: string;
+      date: string;
+      ville: string;
+      quartier: string;
+      dateNaissance: string;
+    }>;
+    donneursDetails: Array<{
+      id: string;
+      nom: string;
+      email: string;
+      cni: string;
+      telephone: string;
+      groupe: string;
+      date: string;
+      ville: string;
+      quartier: string;
+      dateNaissance: string;
+    }>;
+  };
+  cntsStocks: Array<{
+    groupeSanguin: string;
+    quantite: number;
+    seuil: number;
+    statut: "critique" | "faible" | "normal";
+  }>;
+  hopitauxStocks: Array<{
+    id: string;
+    nom: string;
+    ville: string;
+    totalUnites: number;
+    groupesCritiques: number;
+    stocks: Array<{
+      groupeSanguin: string;
+      quantite: number;
+      seuil: number;
+      statut: "critique" | "faible" | "normal";
+    }>;
+  }>;
+}
