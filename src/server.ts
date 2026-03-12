@@ -1,61 +1,37 @@
 import "dotenv/config";
-import express from "express";
-import cors from "cors";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./generated/prisma/client.js";
+import { createApplication } from "./app.js";
+import { dbPool } from "./config/database.js";
+import { env } from "./config/environment.js";
 
-const app = express();
-const databaseUrl = process.env.DATABASE_URL;
+async function bootstrap(): Promise<void> {
+  const { app, logger } = await createApplication();
 
-if (!databaseUrl) {
-  const hasDbParts =
-    process.env.DB_HOST &&
-    process.env.DB_PORT &&
-    process.env.DB_USER &&
-    process.env.DB_PASSWORD &&
-    process.env.DB_NAME;
+  const server = app.listen(env.port, () => {
+    logger.info("Server started", {
+      port: env.port,
+      nodeEnv: env.nodeEnv,
+    });
+  });
 
-  if (!hasDbParts) {
-    throw new Error(
-      "Set DATABASE_URL or DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME"
-    );
-  }
+  const shutdown = async (signal: string): Promise<void> => {
+    logger.info("Shutdown signal received", { signal });
+    server.close(async () => {
+      await dbPool.end();
+      logger.info("HTTP server and DB pool closed", { signal });
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
+
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
 }
 
-const pool =
-  databaseUrl && databaseUrl.trim() !== ""
-    ? new Pool({ connectionString: databaseUrl })
-    : new Pool({
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined,
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        database: process.env.DB_NAME,
-      });
-
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
-
-app.use(cors());
-app.use(express.json());
-
-app.get("/", (req, res) => {
-  res.json({ message: "🩸 API DonDeSang opérationnelle" });
-});
-
-app.get("/test-db", async (req, res) => {
-  try {
-    await prisma.$connect();
-    res.json({ message: "✅ Connexion PostgreSQL réussie" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "❌ Erreur connexion DB" });
-  }
-});
-
-const PORT = Number(process.env.PORT) || 3000;
-
-app.listen(PORT, () => {
-  console.log(`🔥 Server running on http://localhost:${PORT}`);
+bootstrap().catch((error) => {
+  console.error(error);
+  process.exit(1);
 });
