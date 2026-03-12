@@ -82,6 +82,12 @@ export function createApiRouter(dependencies: RouteDependencies): Router {
     dependencies.hospitalDashboardController.createEmergencyAlert
   );
 
+  router.patch(
+    "/hospital/emergencies/:id/resolve",
+    authMiddleware(dependencies.tokenService),
+    dependencies.hospitalDashboardController.resolveEmergencyAlert
+  );
+
   router.get(
     "/dashboards/admin",
     authMiddleware(dependencies.tokenService),

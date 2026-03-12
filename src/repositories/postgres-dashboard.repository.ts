@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import type { AppointmentStatus } from "../domain/enums/appointment-status.enum.js";
+import type { EmergencyStatus } from "../domain/enums/emergency-status.enum.js";
+import {
+  getDefaultStockThreshold,
+  resolveStockThreshold,
+} from "../shared/constants/stock-thresholds.js";
 import type {
   BloodDistributionRecord,
   CampaignRecord,
@@ -49,6 +54,7 @@ interface EmergencyRow {
   id: string;
   blood_type: string;
   priority: string;
+  status: string;
   message: string;
   created_at: Date;
   quantity_needed: number;
@@ -245,6 +251,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         e.id,
         e.blood_type,
         e.priority,
+        e.status,
         e.message,
         e.created_at,
         e.quantity_needed,
@@ -270,6 +277,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       id: row.id,
       bloodType: row.blood_type,
       priority: row.priority,
+      status: row.status,
       message: row.message,
       createdAt: row.created_at.toISOString(),
       quantityNeeded: row.quantity_needed,
@@ -703,6 +711,8 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       const row = existing.rows[0];
 
       if (status === "COMPLETED" && row.status !== "COMPLETED" && row.donor_blood_type) {
+        const threshold = getDefaultStockThreshold(row.donor_blood_type);
+
         await client.query(
           `
           INSERT INTO hospital_stocks (
@@ -713,13 +723,17 @@ export class PostgresDashboardRepository implements IDashboardRepository {
             threshold,
             updated_at
           )
-          VALUES ($1, $2, $3, 1, 0, NOW())
+          VALUES ($1, $2, $3, 1, $4, NOW())
           ON CONFLICT (hospital_user_id, blood_type)
           DO UPDATE
           SET quantity = hospital_stocks.quantity + 1,
+              threshold = CASE
+                WHEN hospital_stocks.threshold <= 0 THEN EXCLUDED.threshold
+                ELSE hospital_stocks.threshold
+              END,
               updated_at = NOW()
           `,
-          [randomUUID(), hospitalUserId, row.donor_blood_type]
+          [randomUUID(), hospitalUserId, row.donor_blood_type, threshold]
         );
 
         await client.query(
@@ -771,6 +785,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         e.id,
         e.blood_type,
         e.priority,
+        e.status,
         e.message,
         e.created_at,
         e.quantity_needed,
@@ -784,7 +799,9 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       FROM emergency_alerts e
       INNER JOIN users u ON u.id = e.hospital_user_id
       WHERE e.hospital_user_id = $1
-      ORDER BY e.created_at DESC
+      ORDER BY
+        CASE WHEN e.status = 'ACTIVE' THEN 0 ELSE 1 END,
+        e.created_at DESC
       LIMIT $2
       `,
       [hospitalUserId, limit]
@@ -794,6 +811,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       id: row.id,
       bloodType: row.blood_type,
       priority: row.priority,
+      status: row.status,
       message: row.message,
       createdAt: row.created_at.toISOString(),
       quantityNeeded: row.quantity_needed,
@@ -825,6 +843,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         id,
         blood_type,
         priority,
+        status,
         message,
         created_at,
         quantity_needed,
@@ -852,6 +871,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       id: row.id,
       bloodType: row.blood_type,
       priority: row.priority,
+      status: row.status,
       message: row.message,
       createdAt: row.created_at.toISOString(),
       quantityNeeded: row.quantity_needed,
@@ -861,6 +881,26 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       hospitalName: "",
       city: null,
     };
+  }
+
+  async resolveEmergencyAlert(
+    hospitalUserId: string,
+    emergencyId: string,
+    status: EmergencyStatus
+  ): Promise<boolean> {
+    const result = await this.pool.query(
+      `
+      UPDATE emergency_alerts
+      SET status = $3,
+          updated_at = NOW()
+      WHERE id = $1
+        AND hospital_user_id = $2
+        AND status = 'ACTIVE'
+      `,
+      [emergencyId, hospitalUserId, status]
+    );
+
+    return (result.rowCount ?? 0) > 0;
   }
 
   async countActiveDonorsByCity(city: string | null): Promise<number> {
@@ -893,7 +933,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
   }
 
   async upsertManualStock(input: UpsertManualStockInput): Promise<void> {
-    const threshold = input.threshold ?? 0;
+    const threshold = resolveStockThreshold(input.bloodType, input.threshold);
 
     if (input.mode === "SET") {
       await this.pool.query(
@@ -910,7 +950,11 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         ON CONFLICT (hospital_user_id, blood_type)
         DO UPDATE
         SET quantity = EXCLUDED.quantity,
-            threshold = CASE WHEN $6::boolean THEN EXCLUDED.threshold ELSE hospital_stocks.threshold END,
+            threshold = CASE
+              WHEN $6::boolean THEN EXCLUDED.threshold
+              WHEN hospital_stocks.threshold <= 0 THEN $7
+              ELSE hospital_stocks.threshold
+            END,
             updated_at = NOW()
         `,
         [
@@ -920,6 +964,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
           input.quantity,
           threshold,
           input.threshold !== undefined,
+          threshold,
         ]
       );
 
@@ -940,7 +985,11 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       ON CONFLICT (hospital_user_id, blood_type)
       DO UPDATE
       SET quantity = hospital_stocks.quantity + EXCLUDED.quantity,
-          threshold = CASE WHEN $6::boolean THEN EXCLUDED.threshold ELSE hospital_stocks.threshold END,
+          threshold = CASE
+            WHEN $6::boolean THEN EXCLUDED.threshold
+            WHEN hospital_stocks.threshold <= 0 THEN $7
+            ELSE hospital_stocks.threshold
+          END,
           updated_at = NOW()
       `,
       [
@@ -950,6 +999,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         input.quantity,
         threshold,
         input.threshold !== undefined,
+        threshold,
       ]
     );
   }

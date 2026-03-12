@@ -7,6 +7,10 @@ import type { AdminDashboardDto } from "../dtos/dashboard/admin-dashboard.dto.js
 import type { IDashboardRepository } from "../repositories/interfaces/dashboard-repository.interface.js";
 import type { IUserRepository } from "../repositories/interfaces/user-repository.interface.js";
 import { AppError } from "../shared/errors/app-error.js";
+import {
+  DEFAULT_STOCK_THRESHOLDS,
+  resolveStockThreshold,
+} from "../shared/constants/stock-thresholds.js";
 
 const BLOOD_COLOR_MAP: Record<string, string> = {
   "O+": "bg-red-500",
@@ -19,17 +23,6 @@ const BLOOD_COLOR_MAP: Record<string, string> = {
   "AB-": "bg-yellow-400",
   "N/A": "bg-gray-500",
 };
-
-const DEFAULT_STOCK_THRESHOLDS = [
-  { bloodType: "A+", threshold: 30 },
-  { bloodType: "A-", threshold: 20 },
-  { bloodType: "B+", threshold: 30 },
-  { bloodType: "B-", threshold: 15 },
-  { bloodType: "AB+", threshold: 20 },
-  { bloodType: "AB-", threshold: 10 },
-  { bloodType: "O+", threshold: 40 },
-  { bloodType: "O-", threshold: 25 },
-] as const;
 
 export class AdminDashboardService {
   constructor(
@@ -249,7 +242,7 @@ export class AdminDashboardService {
       return {
         bloodType: item.bloodType,
         quantity: existing?.quantity ?? 0,
-        threshold: existing?.threshold ?? item.threshold,
+        threshold: resolveStockThreshold(item.bloodType, existing?.threshold),
       };
     });
   }

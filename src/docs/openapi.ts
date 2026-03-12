@@ -118,6 +118,14 @@ export const openApiDocument = {
         responses: { "201": { description: "Created" } },
       },
     },
+    "/api/v1/hospital/emergencies/{id}/resolve": {
+      patch: {
+        summary: "Resolve emergency alert",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "204": { description: "Updated" } },
+      },
+    },
     "/api/v1/admin/campaigns": {
       post: {
         summary: "Create campaign",

@@ -38,6 +38,10 @@ export interface DonorDashboardDto {
     groupe: string;
     besoin: string;
     distance: string;
+    description: string;
+    quantite: number;
+    priorite: string;
+    createdAt: string;
   }>;
   campagnes: Array<{
     id: string;

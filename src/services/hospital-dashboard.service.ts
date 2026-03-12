@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { AppointmentStatus } from "../domain/enums/appointment-status.enum.js";
 import { CampaignStatus } from "../domain/enums/campaign-status.enum.js";
 import { EmergencyPriority } from "../domain/enums/emergency-priority.enum.js";
+import { EmergencyStatus } from "../domain/enums/emergency-status.enum.js";
 import type { User } from "../domain/entities/user.entity.js";
 import { UserRole } from "../domain/enums/user-role.enum.js";
 import type { HospitalDashboardDto } from "../dtos/dashboard/hospital-dashboard.dto.js";
@@ -10,17 +11,10 @@ import type { UpdateAppointmentStatusDto } from "../dtos/hospital/update-appoint
 import type { IDashboardRepository } from "../repositories/interfaces/dashboard-repository.interface.js";
 import type { IUserRepository } from "../repositories/interfaces/user-repository.interface.js";
 import { AppError } from "../shared/errors/app-error.js";
-
-const DEFAULT_STOCKS = [
-  { bloodType: "A+", threshold: 30 },
-  { bloodType: "A-", threshold: 20 },
-  { bloodType: "B+", threshold: 30 },
-  { bloodType: "B-", threshold: 15 },
-  { bloodType: "AB+", threshold: 20 },
-  { bloodType: "AB-", threshold: 10 },
-  { bloodType: "O+", threshold: 40 },
-  { bloodType: "O-", threshold: 25 },
-] as const;
+import {
+  DEFAULT_STOCK_THRESHOLDS,
+  resolveStockThreshold,
+} from "../shared/constants/stock-thresholds.js";
 
 export class HospitalDashboardService {
   constructor(
@@ -81,8 +75,9 @@ export class HospitalDashboardService {
         id: emergency.id,
         titre: this.buildEmergencyTitle(emergency.priority, emergency.bloodType),
         description: emergency.message,
-        niveauLabel: this.getEmergencyLevelLabel(emergency.priority),
-        niveauColor: this.getEmergencyLevelColor(emergency.priority),
+        niveauLabel: this.getEmergencyLevelLabel(emergency.status, emergency.priority),
+        niveauColor: this.getEmergencyLevelColor(emergency.status, emergency.priority),
+        statut: this.mapEmergencyStatus(emergency.status),
         createdAtLabel: this.toRelativeTimeLabel(emergency.createdAt),
         notifiedDonors: emergency.notifiedDonors,
         positiveResponses: emergency.positiveResponses,
@@ -149,6 +144,20 @@ export class HospitalDashboardService {
     });
   }
 
+  async resolveEmergency(userId: string, emergencyId: string): Promise<void> {
+    const hospitalUser = await this.requireHospital(userId);
+
+    const updated = await this.dashboardRepository.resolveEmergencyAlert(
+      hospitalUser.id,
+      emergencyId,
+      EmergencyStatus.RESOLVED
+    );
+
+    if (!updated) {
+      throw new AppError("Emergency not found", 404, "EMERGENCY_NOT_FOUND");
+    }
+  }
+
   private async requireHospital(userId: string): Promise<User> {
     const user = await this.userRepository.findById(userId);
 
@@ -168,12 +177,12 @@ export class HospitalDashboardService {
   ): Array<{ bloodType: string; quantity: number; threshold: number }> {
     const byBloodType = new Map(stocks.map((item) => [item.bloodType, item]));
 
-    return DEFAULT_STOCKS.map((item) => {
+    return DEFAULT_STOCK_THRESHOLDS.map((item) => {
       const existing = byBloodType.get(item.bloodType);
       return {
         bloodType: item.bloodType,
         quantity: existing?.quantity ?? 0,
-        threshold: existing?.threshold ?? item.threshold,
+        threshold: resolveStockThreshold(item.bloodType, existing?.threshold),
       };
     });
   }
@@ -207,38 +216,50 @@ export class HospitalDashboardService {
 
   private buildEmergencyTitle(priority: string, bloodType: string): string {
     if (priority === EmergencyPriority.CRITICAL) {
-      return `Urgence ${bloodType} Négatif`;
+      return `Urgence ${bloodType}`;
     }
 
     if (priority === EmergencyPriority.HIGH) {
-      return `Stock Faible ${bloodType}`;
+      return `Stock faible ${bloodType}`;
     }
 
     return `Alerte ${bloodType}`;
   }
 
-  private getEmergencyLevelLabel(priority: string): string {
+  private getEmergencyLevelLabel(status: string, priority: string): string {
+    if (status === EmergencyStatus.RESOLVED) {
+      return "Resolue";
+    }
+
     if (priority === EmergencyPriority.CRITICAL) {
       return "Critique";
     }
 
     if (priority === EmergencyPriority.HIGH) {
-      return "Moyen";
+      return "Urgente";
     }
 
-    return "Résolu";
+    return "Active";
   }
 
-  private getEmergencyLevelColor(priority: string): "red" | "yellow" | "green" {
+  private getEmergencyLevelColor(status: string, priority: string): "red" | "yellow" | "green" {
+    if (status === EmergencyStatus.RESOLVED) {
+      return "green";
+    }
+
     if (priority === EmergencyPriority.CRITICAL) {
       return "red";
     }
 
-    if (priority === EmergencyPriority.HIGH) {
+    if (priority === EmergencyPriority.HIGH || priority === EmergencyPriority.MEDIUM) {
       return "yellow";
     }
 
-    return "green";
+    return "yellow";
+  }
+
+  private mapEmergencyStatus(status: string): "active" | "resolue" {
+    return status === EmergencyStatus.RESOLVED ? "resolue" : "active";
   }
 
   private mapCampaignStatus(status: string): "active" | "terminee" | "planifiee" {

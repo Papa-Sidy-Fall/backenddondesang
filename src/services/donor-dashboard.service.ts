@@ -19,7 +19,7 @@ export class DonorDashboardService {
       this.dashboardRepository.getDonorLastDonationDate(user.id),
       this.dashboardRepository.findDonorDonationHistory(user.id, 12),
       this.dashboardRepository.findDonorUpcomingAppointments(user.id, 6),
-      this.dashboardRepository.findActiveEmergencies(5, user.city),
+      this.dashboardRepository.findActiveEmergencies(20, user.city),
       this.dashboardRepository.findActiveCampaigns(6),
     ]);
 
@@ -63,12 +63,16 @@ export class DonorDashboardService {
         id: emergency.id,
         hopital: emergency.hospitalName,
         groupe: emergency.bloodType,
-        besoin: this.mapEmergencyNeed(emergency.priority),
+        besoin: this.mapEmergencyNeed(emergency.priority, emergency.quantityNeeded),
         distance: emergency.city
           ? user.city && emergency.city === user.city
             ? "Dans votre ville"
             : `Ville: ${emergency.city}`
           : "Distance inconnue",
+        description: emergency.message,
+        quantite: emergency.quantityNeeded,
+        priorite: emergency.priority,
+        createdAt: emergency.createdAt,
       })),
       campagnes: campaigns.map((campaign) => ({
         id: campaign.id,
@@ -137,14 +141,16 @@ export class DonorDashboardService {
     }
   }
 
-  private mapEmergencyNeed(priority: string): string {
+  private mapEmergencyNeed(priority: string, quantityNeeded: number): string {
+    const quantityLabel = `${quantityNeeded} poche${quantityNeeded > 1 ? "s" : ""}`;
+
     switch (priority) {
       case "CRITICAL":
-        return "Critique";
+        return `Critique • ${quantityLabel}`;
       case "HIGH":
-        return "Urgent";
+        return `Urgent • ${quantityLabel}`;
       default:
-        return "Actif";
+        return `Actif • ${quantityLabel}`;
     }
   }
 

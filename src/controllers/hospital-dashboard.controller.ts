@@ -42,4 +42,14 @@ export class HospitalDashboardController {
     await this.hospitalDashboardService.createEmergency(req.authUser.userId, dto);
     res.status(201).json({ message: "Emergency alert created" });
   };
+
+  resolveEmergencyAlert = async (req: Request, res: Response): Promise<void> => {
+    if (!req.authUser) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const params = paramsSchema.parse(req.params);
+    await this.hospitalDashboardService.resolveEmergency(req.authUser.userId, params.id);
+    res.status(204).send();
+  };
 }

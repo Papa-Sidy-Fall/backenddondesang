@@ -1,6 +1,7 @@
 import type { AppointmentStatus } from "../../domain/enums/appointment-status.enum.js";
 import type { CampaignStatus } from "../../domain/enums/campaign-status.enum.js";
 import type { EmergencyPriority } from "../../domain/enums/emergency-priority.enum.js";
+import type { EmergencyStatus } from "../../domain/enums/emergency-status.enum.js";
 
 export interface DonationHistoryRecord {
   id: string;
@@ -23,6 +24,7 @@ export interface EmergencyRecord {
   id: string;
   bloodType: string;
   priority: string;
+  status: string;
   message: string;
   createdAt: string;
   quantityNeeded: number;
@@ -252,6 +254,11 @@ export interface IDashboardRepository {
   ): Promise<boolean>;
   listHospitalEmergencies(hospitalUserId: string, limit: number): Promise<EmergencyRecord[]>;
   createEmergencyAlert(input: CreateEmergencyInput): Promise<EmergencyRecord>;
+  resolveEmergencyAlert(
+    hospitalUserId: string,
+    emergencyId: string,
+    status: EmergencyStatus
+  ): Promise<boolean>;
   countActiveDonorsByCity(city: string | null): Promise<number>;
   countCompatibleDonors(city: string | null, bloodType: string): Promise<number>;
   upsertManualStock(input: UpsertManualStockInput): Promise<void>;

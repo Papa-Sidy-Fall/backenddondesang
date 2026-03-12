@@ -30,6 +30,7 @@ export interface HospitalDashboardDto {
     description: string;
     niveauLabel: string;
     niveauColor: "red" | "yellow" | "green";
+    statut: "active" | "resolue";
     createdAtLabel: string;
     notifiedDonors: number;
     positiveResponses: number;

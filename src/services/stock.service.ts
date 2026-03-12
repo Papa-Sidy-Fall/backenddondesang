@@ -3,17 +3,10 @@ import { UserRole } from "../domain/enums/user-role.enum.js";
 import type { IDashboardRepository } from "../repositories/interfaces/dashboard-repository.interface.js";
 import type { IUserRepository } from "../repositories/interfaces/user-repository.interface.js";
 import { AppError } from "../shared/errors/app-error.js";
-
-const DEFAULT_STOCK_THRESHOLDS = [
-  { bloodType: "A+", threshold: 30 },
-  { bloodType: "A-", threshold: 20 },
-  { bloodType: "B+", threshold: 30 },
-  { bloodType: "B-", threshold: 15 },
-  { bloodType: "AB+", threshold: 20 },
-  { bloodType: "AB-", threshold: 10 },
-  { bloodType: "O+", threshold: 40 },
-  { bloodType: "O-", threshold: 25 },
-] as const;
+import {
+  DEFAULT_STOCK_THRESHOLDS,
+  resolveStockThreshold,
+} from "../shared/constants/stock-thresholds.js";
 
 export class StockService {
   constructor(
@@ -65,7 +58,7 @@ export class StockService {
     return DEFAULT_STOCK_THRESHOLDS.map((item) => {
       const existing = byBloodType.get(item.bloodType);
       const quantity = existing?.quantity ?? 0;
-      const threshold = existing?.threshold ?? item.threshold;
+      const threshold = resolveStockThreshold(item.bloodType, existing?.threshold);
 
       return {
         groupeSanguin: item.bloodType,
